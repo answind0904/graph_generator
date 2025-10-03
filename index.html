@@ -154,7 +154,6 @@
                 tension: chartType === 'line' ? 0 : 0.2
             }];
 
-            // --- 정사각형 차트 데이터 처리 시작 ---
             if (chartType === 'square') {
                 const maxValue = Math.max(...primaryData, 0);
                 const squareData = primaryData.map(value => {
@@ -168,7 +167,7 @@
                 });
 
                 // 공간 최적화 배치 로직
-                const PADDING = -10; // 정사각형 사이 간격을 줄임
+                const PADDING = 2; // 정사각형 사이 간격을 줄임
                 const totalWidth = squareData.reduce((sum, s) => sum + s.side + PADDING, 0);
                 const wrapWidth = totalWidth / 2.2; // 2~3줄로 나누도록 너비 설정
 
@@ -203,9 +202,7 @@
                 datasets[0].pointStyle = 'rect';
                 datasets[0].radius = chartData.map(d => d.side / 2);
 
-            } 
-            // --- 정사각형 차트 데이터 처리 끝 ---
-            else if (chartType === 'line') {
+            } else if (chartType === 'line') {
                 document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
                     const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
                     const dataInputs = block.querySelectorAll('input[type="number"]');
@@ -265,14 +262,12 @@
                     anchor: 'center', align: 'center', color: '#fff',
                     font: { weight: 'bold', size: 11 }
                 });
-            // --- 정사각형 차트 데이터 라벨 스타일 시작 ---
             } else if (chartType === 'square') {
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'center', align: 'center', color: '#000', // 검은색 텍스트
                     font: { weight: 'bold', size: 12 },
                     textShadowBlur: 0 // 드롭 쉐도우 제거
                 });
-            // --- 정사각형 차트 데이터 라벨 스타일 끝 ---
             } else { // bar, line, radar 등
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'end', align: 'end', color: '#333',
@@ -283,21 +278,14 @@
             if (chartType === 'halfDoughnut') {
                 options.rotation = -90;
                 options.circumference = 180;
-                options.plugins.legend.display = false;
-                options.plugins.title.text = `${sum.toLocaleString()}`;
-                options.plugins.title.font = { size: 24, weight: 'bold' };
-                options.plugins.title.position = 'bottom';
-                options.plugins.title.align = 'center';
-                options.plugins.title.padding = { top: -20 };
-                 options.plugins.datalabels.display = (context) => context.dataset.data[context.dataIndex].v > 0;
+                options.plugins.datalabels.display = (context) => context.dataset.data[context.dataIndex] > 0;
             }
 
             if (['bar', 'line'].includes(chartType)) {
                 options.scales = { x: { display: true }, y: { display: true, beginAtZero: true, grace: '15%' } };
-            // --- 정사각형 차트 옵션 설정 시작 ---
             } else if (chartType === 'square') {
                 options.maintainAspectRatio = false;
-                options.plugins.legend.display = false;
+                options.plugins.legend.display = false; // 정사각형 차트에서 범례를 숨깁니다.
                 const squareData = datasets[0].data;
                 const totalHeight = Math.max(...squareData.map(d => d.y + d.side / 2), 0);
                 const totalWidth = Math.max(...squareData.map(d => d.x + d.side / 2), 0);
@@ -315,7 +303,6 @@
                     }
                 };
                  options.layout = { padding: 0 };
-            // --- 정사각형 차트 옵션 설정 끝 ---
             } else if (['radar', 'polarArea'].includes(chartType)) {
                  options.scales = { r: { display: true } };
             }
@@ -448,5 +435,4 @@
 
 </body>
 </html>
-
 
