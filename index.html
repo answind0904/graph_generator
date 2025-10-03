@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간편 그래프 생성기</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js 라이브러리 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js 데이터 라벨 플러그인 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Inter 폰트 적용 */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* 추가 데이터셋의 라벨 스타일 */
+        .synced-label {
+            width: 40%; /* 2/5 width */
+            padding-left: 0.5rem; /* px-2 */
+            padding-right: 0.5rem; /* px-2 */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #4A5568; /* gray-700 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-start justify-center min-h-screen p-4 sm:p-6 lg:p-8">
+
+    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- 왼쪽: 입력 컨트롤 패널 -->
+        <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
+            <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">그래프 생성기 📊</h1>
+
+            <!-- 그래프 종류 선택 -->
+            <div class="mb-5">
+                <label for="chartType" class="block text-sm font-medium text-gray-700 mb-2">그래프 종류</label>
+                <select id="chartType" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <option value="bar">막대 그래프</option>
+                    <option value="line">선 그래프</option>
+                    <option value="doughnut">도넛 차트</option>
+                    <option value="halfDoughnut">반원 차트</option>
+                    <option value="polarArea">폴라 차트</option>
+                    <option value="radar">레이더 차트</option>
+                    <option value="square">정사각형 차트</option>
+                </select>
+            </div>
+
+            <hr class="my-6">
+
+            <!-- 동적 데이터 입력 폼 (데이터셋 1) -->
+            <label class="block text-sm font-medium text-gray-700 mb-2">데이터 입력</label>
+            <div id="data-input-container" class="space-y-2 mb-4">
+                <!-- 자바스크립트로 동적 생성될 입력 필드 영역 -->
+            </div>
+            
+            <!-- 합계 표시 영역 -->
+            <div class="text-right font-bold text-lg text-gray-800 mb-4" id="data-sum-display">
+                합계: 0
+            </div>
+
+            <!-- 선 그래프 전용: 추가 데이터셋 입력 영역 -->
+            <div id="additional-datasets-container" class="hidden space-y-4 mb-4">
+                <!-- 데이터셋 추가 버튼으로 동적 생성 -->
+            </div>
+            <button id="addDatasetBtn" class="hidden w-full bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-lg hover:bg-indigo-200 transition duration-300 mb-6">
+                데이터셋 추가 (선 그래프용)
+            </button>
+            
+            <div class="flex gap-2 mb-6">
+                 <button id="addFieldBtn" class="w-1/2 bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition duration-300">
+                    항목 추가
+                </button>
+                 <button id="saveChartBtn" class="w-1/2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300">
+                    이미지 저장
+                </button>
+            </div>
+
+            <!-- 그래프 생성 버튼 (수동 업데이트를 위해 유지) -->
+            <button onclick="createOrUpdateChart()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md">
+                그래프 수동 업데이트
+            </button>
+        </div>
+
+        <!-- 오른쪽: 그래프가 그려질 영역 -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center min-h-[400px]">
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js 데이터 라벨 플러그인을 전역으로 등록합니다.
+        Chart.register(ChartDataLabels);
+
+        let myChart = null;
+
+        /**
+         * 사용자의 입력을 기반으로 차트를 생성하거나 업데이트하는 메인 함수
+         */
+        function createOrUpdateChart() {
+            const chartType = document.getElementById('chartType').value;
+            const { labels, datasets, totalSum } = parseAllData(chartType);
+
+            document.getElementById('data-sum-display').innerText = `합계: ${totalSum.toLocaleString()}`;
+
+            if (labels.length === 0 || datasets.length === 0 || datasets[0].data.length === 0) {
+                if(myChart) myChart.destroy();
+                myChart = null;
+                return;
+            }
+            
+            const ctx = document.getElementById('myChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            const options = buildChartOptions(chartType, totalSum, datasets);
+            
+            let finalChartType = chartType;
+            if (chartType === 'halfDoughnut') finalChartType = 'doughnut';
+            if (chartType === 'square') finalChartType = 'scatter';
+
+
+            myChart = new Chart(ctx, {
+                type: finalChartType,
+                data: { labels, datasets },
+                options,
+                plugins: [ChartDataLabels],
+            });
+        }
+        
+        /**
+         * UI에서 모든 데이터를 파싱하여 차트 데이터 형식으로 반환하는 함수
+         */
+        function parseAllData(chartType) {
+            const labelInputs = document.querySelectorAll('#data-input-container input[type="text"]');
+            const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
+
+            const labels = Array.from(labelInputs).map(input => input.value.trim());
+            const primaryData = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
+            
+            let totalSum = primaryData.reduce((a, b) => a + b, 0);
+            
+            const baseColors = getBaseColors();
+            let chartData = primaryData;
+            const datasets = [{
+                label: '데이터셋 1',
+                data: chartData,
+                backgroundColor: getColors(labels.length, 0.7, baseColors, 0),
+                borderColor: getColors(labels.length, 1, baseColors, 0),
+                borderWidth: chartType === 'line' ? 3 : 1.5,
+                tension: chartType === 'line' ? 0 : 0.2
+            }];
+
+            // --- 정사각형 차트 데이터 처리 시작 ---
+            if (chartType === 'square') {
+                const maxValue = Math.max(...primaryData, 0);
+                const squareData = primaryData.map(value => {
+                    const MAX_SIDE = 100; 
+                    const MIN_SIDE = 15;
+                    let side = MIN_SIDE;
+                    if (maxValue > 0) {
+                        side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
+                    }
+                    return { side: side, v: value };
+                });
+
+                // 공간 최적화 배치 로직
+                const PADDING = -10; // 정사각형 사이 간격을 줄임
+                const totalWidth = squareData.reduce((sum, s) => sum + s.side + PADDING, 0);
+                const wrapWidth = totalWidth / 2.2; // 2~3줄로 나누도록 너비 설정
+
+                let currentX = 0;
+                let currentY = 0;
+                let maxSideInRow = 0;
+
+                chartData = squareData.map(square => {
+                    if (currentX > 0 && currentX + square.side + PADDING > wrapWidth) {
+                        currentY += maxSideInRow + PADDING;
+                        currentX = 0;
+                        maxSideInRow = 0;
+                    }
+                    
+                    const xPos = currentX + (square.side / 2);
+                    const yPos = currentY + (square.side / 2);
+
+                    currentX += square.side + PADDING;
+                    maxSideInRow = Math.max(maxSideInRow, square.side);
+
+                    return { x: xPos, y: yPos, v: square.v, side: square.side };
+                });
+                
+                // 하단 정렬을 위해 Y좌표 뒤집기
+                const totalHeight = currentY + maxSideInRow;
+                chartData.forEach(d => {
+                    d.y = totalHeight - d.y;
+                });
+
+
+                datasets[0].data = chartData;
+                datasets[0].pointStyle = 'rect';
+                datasets[0].radius = chartData.map(d => d.side / 2);
+
+            } 
+            // --- 정사각형 차트 데이터 처리 끝 ---
+            else if (chartType === 'line') {
+                document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
+                    const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
+                    const dataInputs = block.querySelectorAll('input[type="number"]');
+                    const dataArr = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
+                    totalSum += dataArr.reduce((a, b) => a + b, 0);
+                    
+                    const colorSet = baseColors[(index + 1) % baseColors.length];
+                    datasets.push({
+                        label: name,
+                        data: dataArr,
+                        borderColor: colorSet['1'],
+                        backgroundColor: colorSet['0.7'],
+                        borderWidth: 3,
+                        tension: 0
+                    });
+                });
+            }
+            return { labels, datasets, totalSum };
+        }
+
+        /**
+         * 차트 종류에 따라 동적으로 옵션을 생성하는 함수
+         */
+        function buildChartOptions(chartType, sum, datasets) {
+            const options = {
+                responsive: true,
+                maintainAspectRatio: true, 
+                events: ['mousemove', 'mouseout', 'touchstart', 'touchmove'],
+                plugins: {
+                    legend: { position: 'top', onClick: null },
+                    title: { display: true, text: '생성된 그래프', font: { size: 18 } },
+                    datalabels: {
+                        formatter: (value, context) => {
+                            const label = context.chart.data.labels[context.dataIndex];
+                            if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
+                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                if (total === 0) return `${label}\n0 (0%)`;
+                                const percentage = (value / total * 100).toFixed(1) + '%';
+                                if (value / total < 0.05) return `${label}\n(${percentage})`;
+                                return `${label}\n${value.toLocaleString()}\n(${percentage})`;
+                            }
+                            if (chartType === 'square') {
+                                return `${label}\n${value.v.toLocaleString()}`;
+                            }
+                            return value.toLocaleString();
+                        },
+                        textShadowBlur: 10,
+                        textShadowColor: 'rgba(0, 0, 0, 0.3)'
+                    }
+                },
+                animation: false,
+            };
+
+            // 차트 유형에 따른 데이터 라벨 스타일 설정
+            if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
+                Object.assign(options.plugins.datalabels, {
+                    anchor: 'center', align: 'center', color: '#fff',
+                    font: { weight: 'bold', size: 11 }
+                });
+            // --- 정사각형 차트 데이터 라벨 스타일 시작 ---
+            } else if (chartType === 'square') {
+                Object.assign(options.plugins.datalabels, {
+                    anchor: 'center', align: 'center', color: '#000', // 검은색 텍스트
+                    font: { weight: 'bold', size: 12 },
+                    textShadowBlur: 0 // 드롭 쉐도우 제거
+                });
+            // --- 정사각형 차트 데이터 라벨 스타일 끝 ---
+            } else { // bar, line, radar 등
+                Object.assign(options.plugins.datalabels, {
+                    anchor: 'end', align: 'end', color: '#333',
+                    font: { weight: 'bold', size: 12 }
+                });
+            }
+            
+            if (chartType === 'halfDoughnut') {
+                options.rotation = -90;
+                options.circumference = 180;
+                options.plugins.legend.display = false;
+                options.plugins.title.text = `${sum.toLocaleString()}`;
+                options.plugins.title.font = { size: 24, weight: 'bold' };
+                options.plugins.title.position = 'bottom';
+                options.plugins.title.align = 'center';
+                options.plugins.title.padding = { top: -20 };
+                 options.plugins.datalabels.display = (context) => context.dataset.data[context.dataIndex].v > 0;
+            }
+
+            if (['bar', 'line'].includes(chartType)) {
+                options.scales = { x: { display: true }, y: { display: true, beginAtZero: true, grace: '15%' } };
+            // --- 정사각형 차트 옵션 설정 시작 ---
+            } else if (chartType === 'square') {
+                options.maintainAspectRatio = false;
+                options.plugins.legend.display = false;
+                const squareData = datasets[0].data;
+                const totalHeight = Math.max(...squareData.map(d => d.y + d.side / 2), 0);
+                const totalWidth = Math.max(...squareData.map(d => d.x + d.side / 2), 0);
+                
+                options.scales = {
+                    x: {
+                        display: false,
+                        min: 0,
+                        max: totalWidth * 1.05
+                    },
+                    y: {
+                        display: false,
+                        min: 0,
+                        max: totalHeight * 1.05,
+                    }
+                };
+                 options.layout = { padding: 0 };
+            // --- 정사각형 차트 옵션 설정 끝 ---
+            } else if (['radar', 'polarArea'].includes(chartType)) {
+                 options.scales = { r: { display: true } };
+            }
+
+            return options;
+        }
+
+        function getBaseColors() {
+            return [
+                { '0.7': 'rgba(59, 130, 246, 0.7)', '1': 'rgba(59, 130, 246, 1)' },
+                { '0.7': 'rgba(239, 68, 68, 0.7)', '1': 'rgba(239, 68, 68, 1)' },
+                { '0.7': 'rgba(16, 185, 129, 0.7)', '1': 'rgba(16, 185, 129, 1)' },
+                { '0.7': 'rgba(245, 158, 11, 0.7)', '1': 'rgba(245, 158, 11, 1)' },
+                { '0.7': 'rgba(139, 92, 246, 0.7)', '1': 'rgba(139, 92, 246, 1)' },
+            ];
+        }
+        
+        function getColors(count, opacityKey, baseColors, offset = 0) {
+            let colors = [];
+            for (let i = 0; i < count; i++) {
+                colors.push(baseColors[(i + offset) % baseColors.length][opacityKey]);
+            }
+            return colors;
+        }
+        
+        function addInputRow(label = '', value = '') {
+            const container = document.getElementById('data-input-container');
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 data-row';
+            row.innerHTML = `
+                <input type="text" value="${label}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="항목">
+                <input type="number" value="${value}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="수치">
+                <button onclick="removeInputRow(this)" class="w-1/5 bg-red-500 text-white font-bold py-2 px-2 rounded-lg hover:bg-red-600 transition">-</button>
+            `;
+            container.appendChild(row);
+            syncLineDataInputs();
+        }
+
+        function removeInputRow(button) {
+            button.closest('.data-row').remove();
+            syncLineDataInputs();
+            createOrUpdateChart();
+        }
+
+        function addDataset() {
+            const container = document.getElementById('additional-datasets-container');
+            const block = document.createElement('div');
+            block.className = 'additional-dataset-block border p-3 rounded-lg';
+            const datasetCount = container.children.length + 2;
+            block.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <input type="text" class="dataset-name w-full px-2 py-1 border-b" placeholder="데이터셋 ${datasetCount} 이름">
+                    <button onclick="removeDataset(this)" class="bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600 transition">X</button>
+                </div>
+                <div class="dataset-body space-y-2"></div>
+            `;
+            container.appendChild(block);
+            syncLineDataInputs();
+        }
+
+        function removeDataset(button) {
+            button.closest('.additional-dataset-block').remove();
+            createOrUpdateChart();
+        }
+
+        function syncLineDataInputs() {
+            const labels = Array.from(document.querySelectorAll('#data-input-container input[type="text"]')).map(input => input.value.trim());
+            document.querySelectorAll('.additional-dataset-block').forEach(block => {
+                const body = block.querySelector('.dataset-body');
+                const existingValues = Array.from(body.querySelectorAll('input[type="number"]')).map(input => input.value);
+                body.innerHTML = ''; // Clear existing inputs
+                labels.forEach((label, index) => {
+                    const value = existingValues[index] || '';
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2';
+                    row.innerHTML = `
+                        <span class="synced-label" title="${label}">${label}</span>
+                        <input type="number" value="${value}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="수치">
+                        <div class="w-1/5"></div>
+                    `;
+                    body.appendChild(row);
+                });
+            });
+        }
+        
+        function saveChartAsImage() {
+            if (!myChart || !myChart.canvas) return;
+            const sourceCanvas = myChart.canvas;
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = sourceCanvas.width; newCanvas.height = sourceCanvas.height;
+            const newCtx = newCanvas.getContext('2d');
+            newCtx.fillStyle = 'white';
+            newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+            newCtx.drawImage(sourceCanvas, 0, 0);
+            const dataUrl = newCanvas.toDataURL('image/jpeg', 1.0);
+            const link = document.createElement('a');
+            link.href = dataUrl; link.download = 'graph-chart.jpeg';
+            link.click();
+        }
+
+        function setupInitialFields() {
+            addInputRow('대한민국', 5178); addInputRow('일본', 12512);
+            addInputRow('미국', 33189); addInputRow('중국', 141175);
+            addInputRow('인도', 142860);
+        }
+        
+        window.onload = () => {
+            setupInitialFields();
+            createOrUpdateChart();
+
+            document.getElementById('chartType').addEventListener('change', (e) => {
+                const isLine = e.target.value === 'line';
+                document.getElementById('addDatasetBtn').classList.toggle('hidden', !isLine);
+                const container = document.getElementById('additional-datasets-container');
+                container.classList.toggle('hidden', !isLine);
+                if (!isLine) container.innerHTML = '';
+                createOrUpdateChart();
+            });
+
+            document.getElementById('addFieldBtn').addEventListener('click', () => addInputRow());
+            document.getElementById('addDatasetBtn').addEventListener('click', addDataset);
+            document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
+            document.getElementById('data-input-container').addEventListener('input', () => {
+                syncLineDataInputs();
+                createOrUpdateChart();
+            });
+            document.getElementById('additional-datasets-container').addEventListener('input', createOrUpdateChart);
+        };
+    </script>
+
+</body>
+</html>
+
