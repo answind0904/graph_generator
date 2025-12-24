@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>간편 그래프 생성기</title>
+    <title>간편 그래프 생성기 & 퍼센트 계산기</title>
     <!-- Tailwind CSS 로드 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js 라이브러리 로드 -->
@@ -26,15 +26,66 @@
             text-overflow: ellipsis;
             color: #4A5568; /* gray-700 */
         }
+        /* 탭 활성화 스타일 */
+        .tab-active {
+            border-bottom: 2px solid #2563EB;
+            color: #2563EB;
+            font-weight: 700;
+        }
+        .tab-inactive {
+            color: #6B7280;
+            font-weight: 500;
+        }
+        .tab-inactive:hover {
+            color: #374151;
+        }
+        /* 계산기 입력 필드 스타일 */
+        .calc-input {
+            width: 100%; /* 고정 너비 제거하고 100%로 변경 */
+            padding: 0.5rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 0.375rem;
+            text-align: right;
+            font-weight: 600;
+        }
+        .calc-input:focus {
+            outline: none;
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        /* 드래그 앤 드롭 스타일 */
+        .data-row.dragging {
+            opacity: 0.5;
+            background-color: #F3F4F6;
+            border: 1px dashed #9CA3AF;
+        }
+        /* 핸들에만 커서 포인터 표시 */
+        .drag-handle {
+            cursor: grab;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
     </style>
 </head>
-<body class="bg-gray-100 flex items-start justify-center min-h-screen p-4 sm:p-6 lg:p-8">
+<body class="bg-gray-100 flex flex-col items-center min-h-screen p-4 sm:p-6 lg:p-8">
 
-    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- 탭 네비게이션 -->
+    <div class="w-full max-w-6xl mx-auto mb-6 flex border-b border-gray-200">
+        <button id="tab-graph-btn" class="flex-1 py-4 text-center tab-active transition-colors duration-200" onclick="switchTab('graph')">
+            📊 그래프 생성기
+        </button>
+        <button id="tab-calc-btn" class="flex-1 py-4 text-center tab-inactive transition-colors duration-200" onclick="switchTab('calc')">
+            🧮 퍼센트 계산기
+        </button>
+    </div>
+
+    <!-- 1. 그래프 생성기 섹션 -->
+    <div id="graph-section" class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         <!-- 왼쪽: 입력 컨트롤 패널 -->
         <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
-            <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">그래프 생성기 📊</h1>
+            <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">데이터 입력</h1>
 
             <!-- 그래프 종류 선택 -->
             <div class="mb-5">
@@ -42,7 +93,7 @@
                 <select id="chartType" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     <option value="bar">막대 그래프</option>
                     <option value="line">선 그래프</option>
-                    <option value="doughnut">도넛 차트</option>
+                    <option value="doughnut">원 그래프</option>
                     <option value="halfDoughnut">반원 차트</option>
                     <option value="polarArea">폴라 차트</option>
                     <option value="radar">레이더 차트</option>
@@ -53,7 +104,7 @@
             <hr class="my-6">
 
             <!-- 동적 데이터 입력 폼 (데이터셋 1) -->
-            <label class="block text-sm font-medium text-gray-700 mb-2">데이터 입력</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">데이터 입력 (핸들을 잡아 순서 변경)</label>
             <div id="data-input-container" class="space-y-2 mb-4">
                 <!-- 자바스크립트로 동적 생성될 입력 필드 영역 -->
             </div>
@@ -92,15 +143,214 @@
         </div>
     </div>
 
+    <!-- 2. 퍼센트 계산기 섹션 (초기 숨김) -->
+    <div id="calc-section" class="hidden w-full max-w-5xl mx-auto">
+        <div class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">퍼센트 계산기</h2>
+            
+            <!-- 계산기들을 세로로 쌓음 -->
+            <div class="flex flex-col gap-4">
+                
+                <!-- 계산기 1: 비율 값 계산 -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
+                        <span class="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                        비율 값
+                    </div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">전체</span>
+                            <input type="number" id="calc1-total" class="calc-input" placeholder="10000">
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">의</span>
+                            <input type="number" id="calc1-percent" class="calc-input" placeholder="20">
+                            <span class="text-gray-600 whitespace-nowrap">% 는</span>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-blue-200 flex items-center justify-between shadow-sm">
+                        <span class="text-gray-400 text-sm">=</span>
+                        <span id="calc1-result" class="text-xl font-bold text-blue-600">-</span>
+                    </div>
+                </div>
+
+                <!-- 계산기 2: 일부 값 비율 -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
+                        <span class="bg-green-100 text-green-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                        일부 비율
+                    </div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">전체</span>
+                            <input type="number" id="calc2-total" class="calc-input" placeholder="5000">
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">중</span>
+                            <input type="number" id="calc2-part" class="calc-input" placeholder="1000">
+                            <span class="text-gray-600 whitespace-nowrap">은</span>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-green-200 flex items-center justify-between shadow-sm">
+                        <span class="text-gray-400 text-sm">=</span>
+                        <span id="calc2-result" class="text-xl font-bold text-green-600">-</span>
+                    </div>
+                </div>
+
+                <!-- 계산기 3: 증감율 계산 -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
+                        <span class="bg-purple-100 text-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+                        증감율
+                    </div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">기존</span>
+                            <input type="number" id="calc3-old" class="calc-input" placeholder="100">
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">이</span>
+                            <input type="number" id="calc3-new" class="calc-input" placeholder="150">
+                            <span class="text-gray-600 whitespace-nowrap">되면</span>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-purple-200 flex items-center justify-between shadow-sm">
+                        <span class="text-gray-400 text-sm">=</span>
+                        <span id="calc3-result" class="text-xl font-bold text-purple-600">-</span>
+                    </div>
+                </div>
+
+                <!-- 계산기 4: 증감량 계산 -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
+                        <span class="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">4</span>
+                        증감량
+                    </div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">값</span>
+                            <input type="number" id="calc4-val" class="calc-input" placeholder="10000">
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:flex-1">
+                            <span class="text-gray-600 whitespace-nowrap">이</span>
+                            <input type="number" id="calc4-percent" class="calc-input" placeholder="-20">
+                            <span class="text-gray-600 whitespace-nowrap">% 증감</span>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-orange-200 flex items-center justify-between shadow-sm">
+                        <span class="text-gray-400 text-sm">=</span>
+                        <span id="calc4-result" class="text-xl font-bold text-orange-600">-</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Chart.js 데이터 라벨 플러그인을 전역으로 등록합니다.
+        // --- 탭 전환 로직 ---
+        function switchTab(tabName) {
+            const graphSection = document.getElementById('graph-section');
+            const calcSection = document.getElementById('calc-section');
+            const tabGraphBtn = document.getElementById('tab-graph-btn');
+            const tabCalcBtn = document.getElementById('tab-calc-btn');
+
+            if (tabName === 'graph') {
+                graphSection.classList.remove('hidden');
+                graphSection.classList.add('grid');
+                calcSection.classList.add('hidden');
+                
+                tabGraphBtn.classList.remove('tab-inactive');
+                tabGraphBtn.classList.add('tab-active');
+                tabCalcBtn.classList.remove('tab-active');
+                tabCalcBtn.classList.add('tab-inactive');
+            } else {
+                graphSection.classList.add('hidden');
+                graphSection.classList.remove('grid');
+                calcSection.classList.remove('hidden');
+
+                tabGraphBtn.classList.remove('tab-active');
+                tabGraphBtn.classList.add('tab-inactive');
+                tabCalcBtn.classList.remove('tab-inactive');
+                tabCalcBtn.classList.add('tab-active');
+            }
+        }
+
+        // --- 퍼센트 계산기 로직 ---
+        function formatNum(num) {
+            return parseFloat(num.toFixed(2)).toLocaleString();
+        }
+
+        function calculate1() {
+            const total = parseFloat(document.getElementById('calc1-total').value);
+            const percent = parseFloat(document.getElementById('calc1-percent').value);
+            const resultEl = document.getElementById('calc1-result');
+
+            if (isNaN(total) || isNaN(percent)) {
+                resultEl.innerText = "-";
+                return;
+            }
+            const res = total * (percent / 100);
+            resultEl.innerText = formatNum(res);
+        }
+
+        function calculate2() {
+            const total = parseFloat(document.getElementById('calc2-total').value);
+            const part = parseFloat(document.getElementById('calc2-part').value);
+            const resultEl = document.getElementById('calc2-result');
+
+            if (isNaN(total) || isNaN(part) || total === 0) {
+                resultEl.innerText = "-";
+                return;
+            }
+            const res = (part / total) * 100;
+            resultEl.innerText = formatNum(res) + "%";
+        }
+
+        function calculate3() {
+            const oldVal = parseFloat(document.getElementById('calc3-old').value);
+            const newVal = parseFloat(document.getElementById('calc3-new').value);
+            const resultEl = document.getElementById('calc3-result');
+
+            if (isNaN(oldVal) || isNaN(newVal) || oldVal === 0) {
+                resultEl.innerText = "-";
+                return;
+            }
+            const diff = newVal - oldVal;
+            const res = (diff / oldVal) * 100;
+            const sign = res > 0 ? "증가" : (res < 0 ? "감소" : "변동 없음");
+            resultEl.innerText = `${formatNum(Math.abs(res))}% ${sign}`;
+            resultEl.style.color = res > 0 ? "#EF4444" : (res < 0 ? "#3B82F6" : "#4B5563");
+        }
+
+        function calculate4() {
+            const val = parseFloat(document.getElementById('calc4-val').value);
+            const percent = parseFloat(document.getElementById('calc4-percent').value);
+            const resultEl = document.getElementById('calc4-result');
+
+            if (isNaN(val) || isNaN(percent)) {
+                resultEl.innerText = "-";
+                return;
+            }
+            
+            const res = val * (1 + percent / 100);
+            resultEl.innerText = formatNum(res);
+
+            if (percent > 0) {
+                resultEl.style.color = "#EF4444";
+            } else if (percent < 0) {
+                resultEl.style.color = "#3B82F6";
+            } else {
+                resultEl.style.color = "#F97316";
+            }
+        }
+
+        // --- 그래프 생성기 로직 ---
         Chart.register(ChartDataLabels);
 
         let myChart = null;
+        let dragSrcRow = null; // 드래그 소스 저장용 변수
 
-        /**
-         * 사용자의 입력을 기반으로 차트를 생성하거나 업데이트하는 메인 함수
-         */
         function createOrUpdateChart() {
             const chartType = document.getElementById('chartType').value;
             const { labels, datasets, totalSum } = parseAllData(chartType);
@@ -122,7 +372,6 @@
             if (chartType === 'halfDoughnut') finalChartType = 'doughnut';
             if (chartType === 'square') finalChartType = 'scatter';
 
-
             myChart = new Chart(ctx, {
                 type: finalChartType,
                 data: { labels, datasets },
@@ -131,9 +380,6 @@
             });
         }
         
-        /**
-         * UI에서 모든 데이터를 파싱하여 차트 데이터 형식으로 반환하는 함수
-         */
         function parseAllData(chartType) {
             const labelInputs = document.querySelectorAll('#data-input-container input[type="text"]');
             const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
@@ -166,10 +412,9 @@
                     return { side: side, v: value };
                 });
 
-                // 공간 최적화 배치 로직
-                const PADDING = 2; // 정사각형 사이 간격을 줄임
+                const PADDING = 2;
                 const totalWidth = squareData.reduce((sum, s) => sum + s.side + PADDING, 0);
-                const wrapWidth = totalWidth / 2.2; // 2~3줄로 나누도록 너비 설정
+                const wrapWidth = totalWidth / 2.2;
 
                 let currentX = 0;
                 let currentY = 0;
@@ -191,12 +436,10 @@
                     return { x: xPos, y: yPos, v: square.v, side: square.side };
                 });
                 
-                // 하단 정렬을 위해 Y좌표 뒤집기
                 const totalHeight = currentY + maxSideInRow;
                 chartData.forEach(d => {
                     d.y = totalHeight - d.y;
                 });
-
 
                 datasets[0].data = chartData;
                 datasets[0].pointStyle = 'rect';
@@ -223,9 +466,6 @@
             return { labels, datasets, totalSum };
         }
 
-        /**
-         * 차트 종류에 따라 동적으로 옵션을 생성하는 함수
-         */
         function buildChartOptions(chartType, sum, datasets) {
             const options = {
                 responsive: true,
@@ -256,7 +496,6 @@
                 animation: false,
             };
 
-            // 차트 유형에 따른 데이터 라벨 스타일 설정
             if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'center', align: 'center', color: '#fff',
@@ -264,11 +503,11 @@
                 });
             } else if (chartType === 'square') {
                 Object.assign(options.plugins.datalabels, {
-                    anchor: 'center', align: 'center', color: '#000', // 검은색 텍스트
+                    anchor: 'center', align: 'center', color: '#000',
                     font: { weight: 'bold', size: 12 },
-                    textShadowBlur: 0 // 드롭 쉐도우 제거
+                    textShadowBlur: 0
                 });
-            } else { // bar, line, radar 등
+            } else { 
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'end', align: 'end', color: '#333',
                     font: { weight: 'bold', size: 12 }
@@ -285,7 +524,7 @@
                 options.scales = { x: { display: true }, y: { display: true, beginAtZero: true, grace: '15%' } };
             } else if (chartType === 'square') {
                 options.maintainAspectRatio = false;
-                options.plugins.legend.display = false; // 정사각형 차트에서 범례를 숨깁니다.
+                options.plugins.legend.display = false; 
                 const squareData = datasets[0].data;
                 const totalHeight = Math.max(...squareData.map(d => d.y + d.side / 2), 0);
                 const totalWidth = Math.max(...squareData.map(d => d.x + d.side / 2), 0);
@@ -328,15 +567,100 @@
             return colors;
         }
         
+        // --- 드래그 앤 드롭 로직 ---
+        function handleDragStart(e) {
+            dragSrcRow = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            this.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            dragSrcRow = null;
+            // 드래그 종료 시 반드시 draggable 속성 비활성화 (텍스트 선택 간섭 방지)
+            this.setAttribute('draggable', 'false');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+
+            if (dragSrcRow !== this) {
+                const container = document.getElementById('data-input-container');
+                const rows = Array.from(container.children);
+                const fromIndex = rows.indexOf(dragSrcRow);
+                const toIndex = rows.indexOf(this);
+
+                // 1. 메인 데이터 행 이동
+                if (fromIndex < toIndex) {
+                    this.after(dragSrcRow);
+                } else {
+                    this.before(dragSrcRow);
+                }
+
+                // 2. 추가 데이터셋(선 그래프용)의 행들도 동일하게 순서 이동
+                document.querySelectorAll('.additional-dataset-block .dataset-body').forEach(body => {
+                    const subRows = Array.from(body.children);
+                    if (subRows[fromIndex] && subRows[toIndex]) {
+                        const subSrc = subRows[fromIndex];
+                        const subTarget = subRows[toIndex];
+                        if (fromIndex < toIndex) {
+                            subTarget.after(subSrc);
+                        } else {
+                            subTarget.before(subSrc);
+                        }
+                    }
+                });
+
+                // 3. 차트 및 데이터 동기화
+                syncLineDataInputs();
+                createOrUpdateChart();
+            }
+            return false;
+        }
+
         function addInputRow(label = '', value = '') {
             const container = document.getElementById('data-input-container');
             const row = document.createElement('div');
-            row.className = 'flex items-center gap-2 data-row';
+            // 드래그 가능한 행 스타일 및 속성 설정
+            // 기본 draggable은 false로 설정하여 텍스트 선택 간섭 방지
+            row.className = 'flex items-center gap-2 data-row group bg-white p-2 rounded-lg border border-transparent hover:border-gray-200 transition-all';
+            row.draggable = false; 
+            
+            // 드래그 핸들 아이콘 (drag-handle 클래스 추가)
+            const dragHandle = `<div class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>`;
+
             row.innerHTML = `
-                <input type="text" value="${label}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="항목">
-                <input type="number" value="${value}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="수치">
-                <button onclick="removeInputRow(this)" class="w-1/5 bg-red-500 text-white font-bold py-2 px-2 rounded-lg hover:bg-red-600 transition">-</button>
+                ${dragHandle}
+                <input type="text" value="${label}" class="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="항목">
+                <input type="number" value="${value}" class="w-24 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right" placeholder="수치">
+                <button onclick="removeInputRow(this)" class="text-red-400 hover:text-red-600 p-2 rounded-lg transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
             `;
+
+            // 핸들에 마우스가 올라갔을 때만 드래그 기능 활성화
+            const handleDiv = row.querySelector('.drag-handle');
+            handleDiv.addEventListener('mouseenter', () => {
+                row.setAttribute('draggable', 'true');
+            });
+            handleDiv.addEventListener('mouseleave', () => {
+                // 드래그 중이 아닐 때만 비활성화 (드래그 시작 후에는 브라우저가 처리)
+                if (!row.classList.contains('dragging')) {
+                    row.setAttribute('draggable', 'false');
+                }
+            });
+
+            // 드래그 이벤트 리스너 등록
+            row.addEventListener('dragstart', handleDragStart);
+            row.addEventListener('dragover', handleDragOver);
+            row.addEventListener('drop', handleDrop);
+            row.addEventListener('dragend', handleDragEnd);
+
             container.appendChild(row);
             syncLineDataInputs();
         }
@@ -373,7 +697,7 @@
             document.querySelectorAll('.additional-dataset-block').forEach(block => {
                 const body = block.querySelector('.dataset-body');
                 const existingValues = Array.from(body.querySelectorAll('input[type="number"]')).map(input => input.value);
-                body.innerHTML = ''; // Clear existing inputs
+                body.innerHTML = ''; 
                 labels.forEach((label, index) => {
                     const value = existingValues[index] || '';
                     const row = document.createElement('div');
@@ -430,9 +754,18 @@
                 createOrUpdateChart();
             });
             document.getElementById('additional-datasets-container').addEventListener('input', createOrUpdateChart);
+            
+            // --- 퍼센트 계산기: 실시간 이벤트 리스너 등록 ---
+            document.getElementById('calc1-total').addEventListener('input', calculate1);
+            document.getElementById('calc1-percent').addEventListener('input', calculate1);
+            document.getElementById('calc2-total').addEventListener('input', calculate2);
+            document.getElementById('calc2-part').addEventListener('input', calculate2);
+            document.getElementById('calc3-old').addEventListener('input', calculate3);
+            document.getElementById('calc3-new').addEventListener('input', calculate3);
+            document.getElementById('calc4-val').addEventListener('input', calculate4);
+            document.getElementById('calc4-percent').addEventListener('input', calculate4);
         };
     </script>
 
 </body>
 </html>
-
