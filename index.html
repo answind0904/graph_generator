@@ -92,6 +92,7 @@
                 <label for="chartType" class="block text-sm font-medium text-gray-700 mb-2">그래프 종류</label>
                 <select id="chartType" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     <option value="bar">막대 그래프</option>
+                    <option value="singleStackedBar">100% 비율 막대 (비교형)</option>
                     <option value="line">선 그래프</option>
                     <option value="doughnut">원 그래프</option>
                     <option value="halfDoughnut">반원 차트</option>
@@ -102,6 +103,12 @@
             </div>
 
             <hr class="my-6">
+
+            <!-- 데이터셋 이름 입력 (추가된 부분) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">데이터셋 이름 (범례/축 표시용)</label>
+                <input type="text" id="mainDatasetName" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" value="데이터셋 1">
+            </div>
 
             <!-- 동적 데이터 입력 폼 (데이터셋 1) -->
             <label class="block text-sm font-medium text-gray-700 mb-2">데이터 입력 (핸들을 잡아 순서 변경)</label>
@@ -114,12 +121,12 @@
                 합계: 0
             </div>
 
-            <!-- 선 그래프 전용: 추가 데이터셋 입력 영역 -->
+            <!-- 다중 데이터셋 입력 영역 (선 그래프, 비율 막대용) -->
             <div id="additional-datasets-container" class="hidden space-y-4 mb-4">
                 <!-- 데이터셋 추가 버튼으로 동적 생성 -->
             </div>
             <button id="addDatasetBtn" class="hidden w-full bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-lg hover:bg-indigo-200 transition duration-300 mb-6">
-                데이터셋 추가 (선 그래프용)
+                데이터셋 추가 (비교 데이터)
             </button>
             
             <div class="flex gap-2 mb-6">
@@ -349,7 +356,7 @@
         Chart.register(ChartDataLabels);
 
         let myChart = null;
-        let dragSrcRow = null; // 드래그 소스 저장용 변수
+        let dragSrcRow = null; 
 
         function createOrUpdateChart() {
             const chartType = document.getElementById('chartType').value;
@@ -357,7 +364,7 @@
 
             document.getElementById('data-sum-display').innerText = `합계: ${totalSum.toLocaleString()}`;
 
-            if (labels.length === 0 || datasets.length === 0 || datasets[0].data.length === 0) {
+            if (labels.length === 0 || datasets.length === 0 || (datasets[0].data.length === 0 && chartType !== 'singleStackedBar')) {
                 if(myChart) myChart.destroy();
                 myChart = null;
                 return;
@@ -371,6 +378,7 @@
             let finalChartType = chartType;
             if (chartType === 'halfDoughnut') finalChartType = 'doughnut';
             if (chartType === 'square') finalChartType = 'scatter';
+            if (chartType === 'singleStackedBar') finalChartType = 'bar'; // 단일 막대도 Chart.js의 bar 타입 사용
 
             myChart = new Chart(ctx, {
                 type: finalChartType,
@@ -383,87 +391,143 @@
         function parseAllData(chartType) {
             const labelInputs = document.querySelectorAll('#data-input-container input[type="text"]');
             const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
-
-            const labels = Array.from(labelInputs).map(input => input.value.trim());
-            const primaryData = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
             
-            let totalSum = primaryData.reduce((a, b) => a + b, 0);
+            // 첫 번째 데이터셋 이름 가져오기
+            const mainDatasetName = document.getElementById('mainDatasetName').value || '데이터셋 1';
+
+            const labelValues = Array.from(labelInputs).map(input => input.value.trim());
+            const dataValues = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
+            
+            let totalSum = dataValues.reduce((a, b) => a + b, 0);
             
             const baseColors = getBaseColors();
-            let chartData = primaryData;
-            const datasets = [{
-                label: '데이터셋 1',
-                data: chartData,
-                backgroundColor: getColors(labels.length, 0.7, baseColors, 0),
-                borderColor: getColors(labels.length, 1, baseColors, 0),
-                borderWidth: chartType === 'line' ? 3 : 1.5,
-                tension: chartType === 'line' ? 0 : 0.2
-            }];
+            let datasets = [];
+            let chartLabels = [];
 
-            if (chartType === 'square') {
-                const maxValue = Math.max(...primaryData, 0);
-                const squareData = primaryData.map(value => {
-                    const MAX_SIDE = 100; 
-                    const MIN_SIDE = 15;
-                    let side = MIN_SIDE;
-                    if (maxValue > 0) {
-                        side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
-                    }
-                    return { side: side, v: value };
+            if (chartType === 'singleStackedBar') {
+                // "100% 비율 막대" 모드
+                // Y축 레이블 정의 (데이터셋 1, 데이터셋 2...)
+                chartLabels = [mainDatasetName];
+                const additionalBlocks = document.querySelectorAll('.additional-dataset-block');
+                additionalBlocks.forEach((block, i) => {
+                    const name = block.querySelector('.dataset-name').value || `데이터셋 ${i + 2}`;
+                    chartLabels.push(name);
                 });
 
-                const PADDING = 2;
-                const totalWidth = squareData.reduce((sum, s) => sum + s.side + PADDING, 0);
-                const wrapWidth = totalWidth / 2.2;
+                // 각 입력 항목(Row)을 하나의 세그먼트(Chart Dataset)로 변환
+                const segments = labelValues.map((name, i) => ({
+                    label: name || `항목 ${i + 1}`,
+                    values: [dataValues[i]], // 데이터셋 1의 값
+                    colorSet: baseColors[i % baseColors.length]
+                }));
 
-                let currentX = 0;
-                let currentY = 0;
-                let maxSideInRow = 0;
-
-                chartData = squareData.map(square => {
-                    if (currentX > 0 && currentX + square.side + PADDING > wrapWidth) {
-                        currentY += maxSideInRow + PADDING;
-                        currentX = 0;
-                        maxSideInRow = 0;
-                    }
-                    
-                    const xPos = currentX + (square.side / 2);
-                    const yPos = currentY + (square.side / 2);
-
-                    currentX += square.side + PADDING;
-                    maxSideInRow = Math.max(maxSideInRow, square.side);
-
-                    return { x: xPos, y: yPos, v: square.v, side: square.side };
-                });
-                
-                const totalHeight = currentY + maxSideInRow;
-                chartData.forEach(d => {
-                    d.y = totalHeight - d.y;
-                });
-
-                datasets[0].data = chartData;
-                datasets[0].pointStyle = 'rect';
-                datasets[0].radius = chartData.map(d => d.side / 2);
-
-            } else if (chartType === 'line') {
-                document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
-                    const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
-                    const dataInputs = block.querySelectorAll('input[type="number"]');
-                    const dataArr = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
-                    totalSum += dataArr.reduce((a, b) => a + b, 0);
-                    
-                    const colorSet = baseColors[(index + 1) % baseColors.length];
-                    datasets.push({
-                        label: name,
-                        data: dataArr,
-                        borderColor: colorSet['1'],
-                        backgroundColor: colorSet['0.7'],
-                        borderWidth: 3,
-                        tension: 0
+                // 추가 데이터셋(추가 막대)의 값 수집
+                additionalBlocks.forEach((block) => {
+                    const inputs = block.querySelectorAll('input[type="number"]');
+                    inputs.forEach((input, i) => {
+                        if (segments[i]) {
+                            segments[i].values.push(Number(input.value) || 0);
+                        }
                     });
                 });
+
+                // 각 막대(Column)별 합계 계산 (비율 계산용)
+                const barTotals = new Array(chartLabels.length).fill(0);
+                segments.forEach(seg => {
+                    seg.values.forEach((val, colIndex) => {
+                        barTotals[colIndex] += val;
+                    });
+                });
+
+                // Chart.js 데이터셋 생성 (퍼센트로 변환)
+                datasets = segments.map(seg => {
+                    const percentData = seg.values.map((val, colIndex) => {
+                        const total = barTotals[colIndex];
+                        return total === 0 ? 0 : (val / total) * 100;
+                    });
+
+                    return {
+                        label: seg.label,
+                        data: percentData,
+                        originalData: seg.values, // 툴팁용 원본 값
+                        backgroundColor: seg.colorSet['0.7'],
+                        borderColor: seg.colorSet['1'],
+                        borderWidth: 1,
+                        barPercentage: 0.6,
+                    };
+                });
+
+            } else {
+                // 일반 차트 모드
+                chartLabels = labelValues;
+                let chartData = dataValues;
+
+                datasets.push({
+                    label: mainDatasetName,
+                    data: chartData,
+                    backgroundColor: getColors(chartLabels.length, 0.7, baseColors, 0),
+                    borderColor: getColors(chartLabels.length, 1, baseColors, 0),
+                    borderWidth: (chartType === 'line') ? 3 : 1.5,
+                    tension: chartType === 'line' ? 0 : 0.2
+                });
+
+                if (chartType === 'square') {
+                    // (정사각형 차트 로직 유지)
+                    const maxValue = Math.max(...dataValues, 0);
+                    const squareData = dataValues.map(value => {
+                        const MAX_SIDE = 100; 
+                        const MIN_SIDE = 15;
+                        let side = MIN_SIDE;
+                        if (maxValue > 0) {
+                            side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
+                        }
+                        return { side: side, v: value };
+                    });
+                    const PADDING = 2;
+                    const totalWidth = squareData.reduce((sum, s) => sum + s.side + PADDING, 0);
+                    const wrapWidth = totalWidth / 2.2;
+                    let currentX = 0, currentY = 0, maxSideInRow = 0;
+                    
+                    const mappedData = squareData.map(square => {
+                        if (currentX > 0 && currentX + square.side + PADDING > wrapWidth) {
+                            currentY += maxSideInRow + PADDING;
+                            currentX = 0; maxSideInRow = 0;
+                        }
+                        const xPos = currentX + (square.side / 2);
+                        const yPos = currentY + (square.side / 2);
+                        currentX += square.side + PADDING;
+                        maxSideInRow = Math.max(maxSideInRow, square.side);
+                        return { x: xPos, y: yPos, v: square.v, side: square.side };
+                    });
+                    const totalHeight = currentY + maxSideInRow;
+                    mappedData.forEach(d => { d.y = totalHeight - d.y; });
+
+                    datasets[0].data = mappedData;
+                    datasets[0].pointStyle = 'rect';
+                    datasets[0].radius = mappedData.map(d => d.side / 2);
+
+                } else if (chartType === 'line') {
+                    // 선 그래프 다중 데이터셋 처리
+                    document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
+                        const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
+                        const inputs = block.querySelectorAll('input[type="number"]');
+                        const arr = Array.from(inputs).map(input => Number(input.value.trim()) || 0);
+                        totalSum += arr.reduce((a, b) => a + b, 0);
+                        
+                        const colorSet = baseColors[(index + 1) % baseColors.length];
+                        datasets.push({
+                            label: name,
+                            data: arr,
+                            borderColor: colorSet['1'],
+                            backgroundColor: colorSet['0.7'],
+                            borderWidth: 3,
+                            tension: 0
+                        });
+                    });
+                }
             }
-            return { labels, datasets, totalSum };
+
+            return { labels: chartLabels, datasets, totalSum };
         }
 
         function buildChartOptions(chartType, sum, datasets) {
@@ -474,9 +538,42 @@
                 plugins: {
                     legend: { position: 'top', onClick: null },
                     title: { display: true, text: '생성된 그래프', font: { size: 18 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                
+                                if (chartType === 'singleStackedBar') {
+                                    // 툴팁: 원본 값 (퍼센트)
+                                    const percent = context.raw.toFixed(1);
+                                    // singleStackedBar는 originalData 배열을 가짐
+                                    const originalVal = context.dataset.originalData[context.dataIndex];
+                                    return `${label}${originalVal.toLocaleString()} (${percent}%)`;
+                                }
+                                
+                                if (context.parsed.y !== null && chartType !== 'square') {
+                                     return label + context.parsed.y.toLocaleString();
+                                }
+                                return label + (context.raw.v ? context.raw.v.toLocaleString() : context.raw.toLocaleString());
+                            }
+                        }
+                    },
                     datalabels: {
                         formatter: (value, context) => {
                             const label = context.chart.data.labels[context.dataIndex];
+                            
+                            // 100% 비율 막대 라벨 포맷
+                            if (chartType === 'singleStackedBar') {
+                                if (value === 0) return '';
+                                const percent = value.toFixed(1);
+                                // originalData에서 해당 인덱스의 값을 가져옴
+                                const originalVal = context.dataset.originalData[context.dataIndex];
+                                // 공간이 너무 좁으면(5% 미만) 숨김
+                                if (value < 5) return ''; 
+                                return `${originalVal}\n(${percent}%)`;
+                            }
+
                             if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
                                 const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                                 if (total === 0) return `${label}\n0 (0%)`;
@@ -485,8 +582,9 @@
                                 return `${label}\n${value.toLocaleString()}\n(${percentage})`;
                             }
                             if (chartType === 'square') {
-                                return `${label}\n${value.v.toLocaleString()}`;
+                                return `${context.chart.data.labels[context.dataIndex]}\n${value.v.toLocaleString()}`;
                             }
+                            
                             return value.toLocaleString();
                         },
                         textShadowBlur: 10,
@@ -496,10 +594,18 @@
                 animation: false,
             };
 
-            if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
+            // 가로형 설정 (비율 막대)
+            if (chartType === 'singleStackedBar') {
+                options.indexAxis = 'y'; 
+            }
+
+            // 라벨 스타일링
+            if (['doughnut', 'polarArea', 'halfDoughnut', 'singleStackedBar'].includes(chartType)) {
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'center', align: 'center', color: '#fff',
-                    font: { weight: 'bold', size: 11 }
+                    font: { weight: 'bold', size: 11 },
+                    textShadowBlur: 4,
+                    textShadowColor: 'rgba(0,0,0,0.5)'
                 });
             } else if (chartType === 'square') {
                 Object.assign(options.plugins.datalabels, {
@@ -520,26 +626,35 @@
                 options.plugins.datalabels.display = (context) => context.dataset.data[context.dataIndex] > 0;
             }
 
-            if (['bar', 'line'].includes(chartType)) {
-                options.scales = { x: { display: true }, y: { display: true, beginAtZero: true, grace: '15%' } };
+            // 축 설정
+            if (['bar', 'line', 'singleStackedBar'].includes(chartType)) {
+                 const isStacked = chartType === 'singleStackedBar';
+                 options.scales = { 
+                    x: { 
+                        display: true,
+                        stacked: isStacked, 
+                        beginAtZero: true,
+                        max: isStacked ? 100 : undefined, // 100% 고정
+                        grid: { display: !isStacked } // 비율 차트는 그리드 숨김이 깔끔
+                    }, 
+                    y: { 
+                        display: true, 
+                        stacked: isStacked,
+                        beginAtZero: true,
+                        grace: isStacked ? undefined : '15%',
+                        grid: { display: !isStacked }
+                    } 
+                };
             } else if (chartType === 'square') {
                 options.maintainAspectRatio = false;
                 options.plugins.legend.display = false; 
+                // ... (Square scale options kept same)
                 const squareData = datasets[0].data;
                 const totalHeight = Math.max(...squareData.map(d => d.y + d.side / 2), 0);
                 const totalWidth = Math.max(...squareData.map(d => d.x + d.side / 2), 0);
-                
                 options.scales = {
-                    x: {
-                        display: false,
-                        min: 0,
-                        max: totalWidth * 1.05
-                    },
-                    y: {
-                        display: false,
-                        min: 0,
-                        max: totalHeight * 1.05,
-                    }
+                    x: { display: false, min: 0, max: totalWidth * 1.05 },
+                    y: { display: false, min: 0, max: totalHeight * 1.05 }
                 };
                  options.layout = { padding: 0 };
             } else if (['radar', 'polarArea'].includes(chartType)) {
@@ -551,11 +666,12 @@
 
         function getBaseColors() {
             return [
-                { '0.7': 'rgba(59, 130, 246, 0.7)', '1': 'rgba(59, 130, 246, 1)' },
-                { '0.7': 'rgba(239, 68, 68, 0.7)', '1': 'rgba(239, 68, 68, 1)' },
-                { '0.7': 'rgba(16, 185, 129, 0.7)', '1': 'rgba(16, 185, 129, 1)' },
-                { '0.7': 'rgba(245, 158, 11, 0.7)', '1': 'rgba(245, 158, 11, 1)' },
-                { '0.7': 'rgba(139, 92, 246, 0.7)', '1': 'rgba(139, 92, 246, 1)' },
+                { '0.7': 'rgba(59, 130, 246, 0.7)', '1': 'rgba(59, 130, 246, 1)' }, // 파랑 (Blue)
+                { '0.7': 'rgba(107, 114, 128, 0.7)', '1': 'rgba(107, 114, 128, 1)' }, // 회색 (Gray) - 순서 변경됨
+                { '0.7': 'rgba(239, 68, 68, 0.7)', '1': 'rgba(239, 68, 68, 1)' }, // 빨강 (Red)
+                { '0.7': 'rgba(16, 185, 129, 0.7)', '1': 'rgba(16, 185, 129, 1)' }, // 초록 (Green)
+                { '0.7': 'rgba(245, 158, 11, 0.7)', '1': 'rgba(245, 158, 11, 1)' }, // 주황 (Orange)
+                { '0.7': 'rgba(139, 92, 246, 0.7)', '1': 'rgba(139, 92, 246, 1)' }, // 보라 (Purple)
             ];
         }
         
@@ -584,7 +700,6 @@
         function handleDragEnd(e) {
             this.classList.remove('dragging');
             dragSrcRow = null;
-            // 드래그 종료 시 반드시 draggable 속성 비활성화 (텍스트 선택 간섭 방지)
             this.setAttribute('draggable', 'false');
         }
 
@@ -597,14 +712,13 @@
                 const fromIndex = rows.indexOf(dragSrcRow);
                 const toIndex = rows.indexOf(this);
 
-                // 1. 메인 데이터 행 이동
                 if (fromIndex < toIndex) {
                     this.after(dragSrcRow);
                 } else {
                     this.before(dragSrcRow);
                 }
 
-                // 2. 추가 데이터셋(선 그래프용)의 행들도 동일하게 순서 이동
+                // 선 그래프용 추가 데이터셋 순서 동기화
                 document.querySelectorAll('.additional-dataset-block .dataset-body').forEach(body => {
                     const subRows = Array.from(body.children);
                     if (subRows[fromIndex] && subRows[toIndex]) {
@@ -618,7 +732,6 @@
                     }
                 });
 
-                // 3. 차트 및 데이터 동기화
                 syncLineDataInputs();
                 createOrUpdateChart();
             }
@@ -628,12 +741,9 @@
         function addInputRow(label = '', value = '') {
             const container = document.getElementById('data-input-container');
             const row = document.createElement('div');
-            // 드래그 가능한 행 스타일 및 속성 설정
-            // 기본 draggable은 false로 설정하여 텍스트 선택 간섭 방지
             row.className = 'flex items-center gap-2 data-row group bg-white p-2 rounded-lg border border-transparent hover:border-gray-200 transition-all';
             row.draggable = false; 
             
-            // 드래그 핸들 아이콘 (drag-handle 클래스 추가)
             const dragHandle = `<div class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>`;
 
             row.innerHTML = `
@@ -643,19 +753,16 @@
                 <button onclick="removeInputRow(this)" class="text-red-400 hover:text-red-600 p-2 rounded-lg transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
             `;
 
-            // 핸들에 마우스가 올라갔을 때만 드래그 기능 활성화
             const handleDiv = row.querySelector('.drag-handle');
             handleDiv.addEventListener('mouseenter', () => {
                 row.setAttribute('draggable', 'true');
             });
             handleDiv.addEventListener('mouseleave', () => {
-                // 드래그 중이 아닐 때만 비활성화 (드래그 시작 후에는 브라우저가 처리)
                 if (!row.classList.contains('dragging')) {
                     row.setAttribute('draggable', 'false');
                 }
             });
 
-            // 드래그 이벤트 리스너 등록
             row.addEventListener('dragstart', handleDragStart);
             row.addEventListener('dragover', handleDragOver);
             row.addEventListener('drop', handleDrop);
@@ -728,9 +835,9 @@
         }
 
         function setupInitialFields() {
-            addInputRow('대한민국', 5178); addInputRow('일본', 12512);
-            addInputRow('미국', 33189); addInputRow('중국', 141175);
-            addInputRow('인도', 142860);
+            addInputRow('찬성', 30);
+            addInputRow('모름', 20);
+            addInputRow('반대', 50);
         }
         
         window.onload = () => {
@@ -738,14 +845,15 @@
             createOrUpdateChart();
 
             document.getElementById('chartType').addEventListener('change', (e) => {
-                const isLine = e.target.value === 'line';
-                document.getElementById('addDatasetBtn').classList.toggle('hidden', !isLine);
+                const isMultiSet = e.target.value === 'line' || e.target.value === 'singleStackedBar'; 
+                document.getElementById('addDatasetBtn').classList.toggle('hidden', !isMultiSet);
                 const container = document.getElementById('additional-datasets-container');
-                container.classList.toggle('hidden', !isLine);
-                if (!isLine) container.innerHTML = '';
+                container.classList.toggle('hidden', !isMultiSet);
+                if (!isMultiSet) container.innerHTML = '';
                 createOrUpdateChart();
             });
 
+            document.getElementById('mainDatasetName').addEventListener('input', createOrUpdateChart);
             document.getElementById('addFieldBtn').addEventListener('click', () => addInputRow());
             document.getElementById('addDatasetBtn').addEventListener('click', addDataset);
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
