@@ -358,11 +358,36 @@
         let myChart = null;
         let dragSrcRow = null; 
 
+        // 모든 데이터셋의 합계를 계산하고 표시하는 함수
+        function updateAllTotals() {
+            // 1. 메인 데이터셋 합계 계산
+            const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
+            const mainTotal = Array.from(dataInputs)
+                .map(input => Number(input.value.trim()) || 0)
+                .reduce((a, b) => a + b, 0);
+            document.getElementById('data-sum-display').innerText = `합계: ${mainTotal.toLocaleString()}`;
+
+            // 2. 추가 데이터셋들의 합계 계산
+            const additionalBlocks = document.querySelectorAll('.additional-dataset-block');
+            additionalBlocks.forEach(block => {
+                const inputs = block.querySelectorAll('input[type="number"]');
+                const subTotal = Array.from(inputs)
+                    .map(input => Number(input.value.trim()) || 0)
+                    .reduce((a, b) => a + b, 0);
+                
+                const sumDisplay = block.querySelector('.dataset-total-display');
+                if (sumDisplay) {
+                    sumDisplay.innerText = `합계: ${subTotal.toLocaleString()}`;
+                }
+            });
+        }
+
         function createOrUpdateChart() {
             const chartType = document.getElementById('chartType').value;
             const { labels, datasets, totalSum } = parseAllData(chartType);
 
-            document.getElementById('data-sum-display').innerText = `합계: ${totalSum.toLocaleString()}`;
+            // 합계 업데이트 (기존 로직 대체)
+            updateAllTotals();
 
             if (labels.length === 0 || datasets.length === 0 || (datasets[0].data.length === 0 && chartType !== 'singleStackedBar')) {
                 if(myChart) myChart.destroy();
@@ -789,9 +814,12 @@
                     <button onclick="removeDataset(this)" class="bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600 transition">X</button>
                 </div>
                 <div class="dataset-body space-y-2"></div>
+                <!-- 합계 표시 영역 추가 -->
+                <div class="dataset-total-display text-right font-bold text-lg text-gray-800 mt-2">합계: 0</div>
             `;
             container.appendChild(block);
             syncLineDataInputs();
+            updateAllTotals(); // 새로 추가된 데이터셋의 합계 초기화 (0)
         }
 
         function removeDataset(button) {
