@@ -152,11 +152,18 @@
                 데이터셋 추가 (비교 데이터)
             </button>
             
-            <div class="flex gap-2 mb-6">
-                 <button id="addFieldBtn" class="w-1/2 bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition duration-300">
+            <!-- 버튼 그룹 수정: 항목 추가 / (수치숨기기 + 저장) 분리 -->
+            <div class="mb-3">
+                 <button id="addFieldBtn" class="w-full bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition duration-300 text-sm">
                     항목 추가
                 </button>
-                 <button id="saveChartBtn" class="w-1/2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300">
+            </div>
+            <div class="flex gap-2 mb-6">
+                 <!-- 데이터 라벨 토글 버튼 (무채색 스타일) -->
+                 <button id="toggleLabelBtn" class="flex-1 bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-400 transition duration-300 text-sm">
+                    수치 숨기기
+                </button>
+                 <button id="saveChartBtn" class="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition duration-300 text-sm">
                     이미지 저장
                 </button>
             </div>
@@ -266,7 +273,8 @@
         Chart.register(ChartDataLabels);
 
         let myChart = null;
-        let dragSrcRow = null; 
+        let dragSrcRow = null;
+        let isDataLabelVisible = true; // 라벨 표시 여부 상태 변수
 
         function getBaseColors() {
             return [
@@ -534,25 +542,58 @@
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
+                                
                                 if (chartType === 'singleStackedBar') {
+                                    if (context.raw === null || context.raw === undefined) return label;
                                     const percent = context.raw.toFixed(1);
-                                    const originalVal = context.dataset.originalData[context.dataIndex];
+                                    const originalVal = context.dataset.originalData && context.dataset.originalData[context.dataIndex] !== undefined
+                                        ? context.dataset.originalData[context.dataIndex]
+                                        : 0;
                                     return `${label}${originalVal.toLocaleString()} (${percent}%)`;
                                 }
-                                if (context.parsed.y !== null && chartType !== 'square') {
+                                
+                                // For Square chart
+                                if (chartType === 'square') {
+                                    if (context.raw && context.raw.v !== undefined) {
+                                        return label + context.raw.v.toLocaleString();
+                                    }
+                                    return label;
+                                }
+
+                                // Safe check for parsed.y
+                                if (context.parsed && typeof context.parsed.y === 'number') {
                                      return label + context.parsed.y.toLocaleString();
                                 }
-                                return label + (context.raw.v ? context.raw.v.toLocaleString() : context.raw.toLocaleString());
+                                
+                                // Fallback for raw values
+                                if (context.raw !== null && context.raw !== undefined) {
+                                    if (typeof context.raw === 'number') {
+                                        return label + context.raw.toLocaleString();
+                                    }
+                                    return label + context.raw; 
+                                }
+                                
+                                return label;
                             }
                         }
                     },
                     datalabels: {
+                        // 수치 표시 여부 제어
+                        display: function(context) {
+                            if (!isDataLabelVisible) return false;
+                            
+                            // halfDoughnut 예외 처리 로직을 여기서 통합
+                            if (chartType === 'halfDoughnut') {
+                                return context.dataset.data[context.dataIndex] > 0;
+                            }
+                            return true;
+                        },
                         formatter: (value, context) => {
                             const label = context.chart.data.labels[context.dataIndex];
                             if (chartType === 'singleStackedBar') {
                                 if (value === 0) return '';
                                 const percent = value.toFixed(1);
-                                const originalVal = context.dataset.originalData[context.dataIndex];
+                                const originalVal = context.dataset.originalData && context.dataset.originalData[context.dataIndex];
                                 if (value < 5) return ''; 
                                 return `${originalVal}\n(${percent}%)`;
                             }
@@ -598,7 +639,7 @@
             
             if (chartType === 'halfDoughnut') {
                 options.rotation = -90; options.circumference = 180;
-                options.plugins.datalabels.display = (context) => context.dataset.data[context.dataIndex] > 0;
+                // display 로직은 위에서 통합 처리됨
             }
 
             if (['bar', 'line', 'singleStackedBar'].includes(chartType)) {
@@ -820,6 +861,24 @@
                 updateAllTotals();
             });
             
+            // 토글 버튼 리스너 (수정됨)
+            document.getElementById('toggleLabelBtn').addEventListener('click', function() {
+                isDataLabelVisible = !isDataLabelVisible;
+                this.innerText = isDataLabelVisible ? '수치 숨기기' : '수치 표시하기';
+                
+                // 스타일 변경 (무채색)
+                this.classList.remove('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400', 'bg-gray-700', 'text-white', 'hover:bg-gray-800');
+                
+                if (isDataLabelVisible) {
+                    // ON (수치 보임) -> 밝은 회색
+                    this.classList.add('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400');
+                } else {
+                    // OFF (수치 숨김) -> 어두운 회색
+                    this.classList.add('bg-gray-700', 'text-white', 'hover:bg-gray-800');
+                }
+                createOrUpdateChart();
+            });
+
             document.getElementById('calc1-total').addEventListener('input', calculate1);
             document.getElementById('calc1-percent').addEventListener('input', calculate1);
             document.getElementById('calc2-total').addEventListener('input', calculate2);
