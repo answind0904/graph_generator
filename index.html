@@ -41,7 +41,7 @@
         }
         /* 계산기 입력 필드 스타일 */
         .calc-input {
-            width: 100%; /* 고정 너비 제거하고 100%로 변경 */
+            width: 100%;
             padding: 0.5rem;
             border: 1px solid #D1D5DB;
             border-radius: 0.375rem;
@@ -65,6 +65,20 @@
         }
         .drag-handle:active {
             cursor: grabbing;
+        }
+        /* 컬러 인디케이터 커서 */
+        .color-indicator {
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px #e5e7eb;
+            transition: transform 0.1s;
+        }
+        .color-indicator:hover {
+            transform: scale(1.1);
+        }
+        /* 선/레이더 차트일 때 행 컬러 숨김 처리를 위한 클래스 */
+        .hide-row-color .row-color-wrapper {
+            display: none !important;
         }
     </style>
 </head>
@@ -104,14 +118,23 @@
 
             <hr class="my-6">
 
-            <!-- 데이터셋 이름 입력 (추가된 부분) -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">데이터셋 이름 (범례/축 표시용)</label>
-                <input type="text" id="mainDatasetName" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" value="데이터셋 1">
+            <!-- 데이터셋 이름 및 전체 컬러 입력 (선/레이더용) -->
+            <div class="mb-4 flex gap-2 items-end">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">데이터셋 이름</label>
+                    <input type="text" id="mainDatasetName" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" value="데이터셋 1">
+                </div>
+                <!-- 데이터셋 전체 컬러 선택기 (선/레이더 차트일 때만 표시됨) -->
+                <div id="mainDatasetColorContainer" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">색상</label>
+                    <div class="relative h-[38px] w-[40px]">
+                        <input type="color" id="mainDatasetColor" class="absolute inset-0 w-full h-full p-0 border-0 rounded cursor-pointer" value="#3B82F6">
+                    </div>
+                </div>
             </div>
 
-            <!-- 동적 데이터 입력 폼 (데이터셋 1) -->
-            <label class="block text-sm font-medium text-gray-700 mb-2">데이터 입력 (핸들을 잡아 순서 변경)</label>
+            <!-- 동적 데이터 입력 폼 -->
+            <label id="inputLabel" class="block text-sm font-medium text-gray-700 mb-2">데이터 입력 (핸들로 순서 변경)</label>
             <div id="data-input-container" class="space-y-2 mb-4">
                 <!-- 자바스크립트로 동적 생성될 입력 필드 영역 -->
             </div>
@@ -121,7 +144,7 @@
                 합계: 0
             </div>
 
-            <!-- 다중 데이터셋 입력 영역 (선 그래프, 비율 막대용) -->
+            <!-- 다중 데이터셋 입력 영역 -->
             <div id="additional-datasets-container" class="hidden space-y-4 mb-4">
                 <!-- 데이터셋 추가 버튼으로 동적 생성 -->
             </div>
@@ -138,7 +161,7 @@
                 </button>
             </div>
 
-            <!-- 그래프 생성 버튼 (수동 업데이트를 위해 유지) -->
+            <!-- 그래프 생성 버튼 -->
             <button onclick="createOrUpdateChart()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md">
                 그래프 수동 업데이트
             </button>
@@ -150,206 +173,93 @@
         </div>
     </div>
 
-    <!-- 2. 퍼센트 계산기 섹션 (초기 숨김) -->
+    <!-- 2. 퍼센트 계산기 섹션 -->
     <div id="calc-section" class="hidden w-full max-w-5xl mx-auto">
         <div class="bg-white p-6 rounded-2xl shadow-lg">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">퍼센트 계산기</h2>
-            
-            <!-- 계산기들을 세로로 쌓음 -->
             <div class="flex flex-col gap-4">
-                
-                <!-- 계산기 1: 비율 값 계산 -->
+                <!-- 계산기 1 -->
                 <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
-                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
-                        <span class="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
-                        비율 값
-                    </div>
-                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">전체</span>
-                            <input type="number" id="calc1-total" class="calc-input" placeholder="10000">
-                        </div>
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">의</span>
-                            <input type="number" id="calc1-percent" class="calc-input" placeholder="20">
-                            <span class="text-gray-600 whitespace-nowrap">% 는</span>
-                        </div>
-                    </div>
-                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-blue-200 flex items-center justify-between shadow-sm">
-                        <span class="text-gray-400 text-sm">=</span>
-                        <span id="calc1-result" class="text-xl font-bold text-blue-600">-</span>
-                    </div>
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2"><span class="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>비율 값</div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full"><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">전체</span><input type="number" id="calc1-total" class="calc-input" placeholder="10000"></div><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">의</span><input type="number" id="calc1-percent" class="calc-input" placeholder="20"><span class="text-gray-600 whitespace-nowrap">% 는</span></div></div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-blue-200 flex items-center justify-between shadow-sm"><span class="text-gray-400 text-sm">=</span><span id="calc1-result" class="text-xl font-bold text-blue-600">-</span></div>
                 </div>
-
-                <!-- 계산기 2: 일부 값 비율 -->
+                <!-- 계산기 2 -->
                 <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
-                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
-                        <span class="bg-green-100 text-green-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
-                        일부 비율
-                    </div>
-                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">전체</span>
-                            <input type="number" id="calc2-total" class="calc-input" placeholder="5000">
-                        </div>
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">중</span>
-                            <input type="number" id="calc2-part" class="calc-input" placeholder="1000">
-                            <span class="text-gray-600 whitespace-nowrap">은</span>
-                        </div>
-                    </div>
-                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-green-200 flex items-center justify-between shadow-sm">
-                        <span class="text-gray-400 text-sm">=</span>
-                        <span id="calc2-result" class="text-xl font-bold text-green-600">-</span>
-                    </div>
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2"><span class="bg-green-100 text-green-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>일부 비율</div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full"><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">전체</span><input type="number" id="calc2-total" class="calc-input" placeholder="5000"></div><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">중</span><input type="number" id="calc2-part" class="calc-input" placeholder="1000"><span class="text-gray-600 whitespace-nowrap">은</span></div></div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-green-200 flex items-center justify-between shadow-sm"><span class="text-gray-400 text-sm">=</span><span id="calc2-result" class="text-xl font-bold text-green-600">-</span></div>
                 </div>
-
-                <!-- 계산기 3: 증감율 계산 -->
+                <!-- 계산기 3 -->
                 <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
-                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
-                        <span class="bg-purple-100 text-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
-                        증감율
-                    </div>
-                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">기존</span>
-                            <input type="number" id="calc3-old" class="calc-input" placeholder="100">
-                        </div>
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">이</span>
-                            <input type="number" id="calc3-new" class="calc-input" placeholder="150">
-                            <span class="text-gray-600 whitespace-nowrap">되면</span>
-                        </div>
-                    </div>
-                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-purple-200 flex items-center justify-between shadow-sm">
-                        <span class="text-gray-400 text-sm">=</span>
-                        <span id="calc3-result" class="text-xl font-bold text-purple-600">-</span>
-                    </div>
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2"><span class="bg-purple-100 text-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>증감율</div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full"><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">기존</span><input type="number" id="calc3-old" class="calc-input" placeholder="100"></div><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">이</span><input type="number" id="calc3-new" class="calc-input" placeholder="150"><span class="text-gray-600 whitespace-nowrap">되면</span></div></div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-purple-200 flex items-center justify-between shadow-sm"><span class="text-gray-400 text-sm">=</span><span id="calc3-result" class="text-xl font-bold text-purple-600">-</span></div>
                 </div>
-
-                <!-- 계산기 4: 증감량 계산 -->
+                <!-- 계산기 4 -->
                 <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row items-center gap-4">
-                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2">
-                        <span class="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">4</span>
-                        증감량
-                    </div>
-                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full">
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">값</span>
-                            <input type="number" id="calc4-val" class="calc-input" placeholder="10000">
-                        </div>
-                        <div class="flex items-center gap-2 w-full sm:flex-1">
-                            <span class="text-gray-600 whitespace-nowrap">이</span>
-                            <input type="number" id="calc4-percent" class="calc-input" placeholder="-20">
-                            <span class="text-gray-600 whitespace-nowrap">% 증감</span>
-                        </div>
-                    </div>
-                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-orange-200 flex items-center justify-between shadow-sm">
-                        <span class="text-gray-400 text-sm">=</span>
-                        <span id="calc4-result" class="text-xl font-bold text-orange-600">-</span>
-                    </div>
+                    <div class="font-bold text-gray-700 w-full md:w-32 flex items-center gap-2"><span class="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-sm">4</span>증감량</div>
+                    <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full"><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">값</span><input type="number" id="calc4-val" class="calc-input" placeholder="10000"></div><div class="flex items-center gap-2 w-full sm:flex-1"><span class="text-gray-600 whitespace-nowrap">이</span><input type="number" id="calc4-percent" class="calc-input" placeholder="-20"><span class="text-gray-600 whitespace-nowrap">% 증감</span></div></div>
+                    <div class="w-full md:w-48 bg-white p-3 rounded-lg border border-orange-200 flex items-center justify-between shadow-sm"><span class="text-gray-400 text-sm">=</span><span id="calc4-result" class="text-xl font-bold text-orange-600">-</span></div>
                 </div>
-
             </div>
         </div>
     </div>
 
     <script>
-        // --- 탭 전환 로직 ---
+        // --- 탭 전환 및 퍼센트 계산기 로직 (변경 없음) ---
         function switchTab(tabName) {
             const graphSection = document.getElementById('graph-section');
             const calcSection = document.getElementById('calc-section');
             const tabGraphBtn = document.getElementById('tab-graph-btn');
             const tabCalcBtn = document.getElementById('tab-calc-btn');
-
             if (tabName === 'graph') {
-                graphSection.classList.remove('hidden');
-                graphSection.classList.add('grid');
+                graphSection.classList.remove('hidden'); graphSection.classList.add('grid');
                 calcSection.classList.add('hidden');
-                
-                tabGraphBtn.classList.remove('tab-inactive');
-                tabGraphBtn.classList.add('tab-active');
-                tabCalcBtn.classList.remove('tab-active');
-                tabCalcBtn.classList.add('tab-inactive');
+                tabGraphBtn.classList.remove('tab-inactive'); tabGraphBtn.classList.add('tab-active');
+                tabCalcBtn.classList.remove('tab-active'); tabCalcBtn.classList.add('tab-inactive');
             } else {
-                graphSection.classList.add('hidden');
-                graphSection.classList.remove('grid');
+                graphSection.classList.add('hidden'); graphSection.classList.remove('grid');
                 calcSection.classList.remove('hidden');
-
-                tabGraphBtn.classList.remove('tab-active');
-                tabGraphBtn.classList.add('tab-inactive');
-                tabCalcBtn.classList.remove('tab-inactive');
-                tabCalcBtn.classList.add('tab-active');
+                tabGraphBtn.classList.remove('tab-active'); tabGraphBtn.classList.add('tab-inactive');
+                tabCalcBtn.classList.remove('tab-inactive'); tabCalcBtn.classList.add('tab-active');
             }
         }
-
-        // --- 퍼센트 계산기 로직 ---
-        function formatNum(num) {
-            return parseFloat(num.toFixed(2)).toLocaleString();
-        }
-
+        function formatNum(num) { return parseFloat(num.toFixed(2)).toLocaleString(); }
         function calculate1() {
             const total = parseFloat(document.getElementById('calc1-total').value);
             const percent = parseFloat(document.getElementById('calc1-percent').value);
             const resultEl = document.getElementById('calc1-result');
-
-            if (isNaN(total) || isNaN(percent)) {
-                resultEl.innerText = "-";
-                return;
-            }
-            const res = total * (percent / 100);
-            resultEl.innerText = formatNum(res);
+            if (isNaN(total) || isNaN(percent)) { resultEl.innerText = "-"; return; }
+            resultEl.innerText = formatNum(total * (percent / 100));
         }
-
         function calculate2() {
             const total = parseFloat(document.getElementById('calc2-total').value);
             const part = parseFloat(document.getElementById('calc2-part').value);
             const resultEl = document.getElementById('calc2-result');
-
-            if (isNaN(total) || isNaN(part) || total === 0) {
-                resultEl.innerText = "-";
-                return;
-            }
-            const res = (part / total) * 100;
-            resultEl.innerText = formatNum(res) + "%";
+            if (isNaN(total) || isNaN(part) || total === 0) { resultEl.innerText = "-"; return; }
+            resultEl.innerText = formatNum((part / total) * 100) + "%";
         }
-
         function calculate3() {
             const oldVal = parseFloat(document.getElementById('calc3-old').value);
             const newVal = parseFloat(document.getElementById('calc3-new').value);
             const resultEl = document.getElementById('calc3-result');
-
-            if (isNaN(oldVal) || isNaN(newVal) || oldVal === 0) {
-                resultEl.innerText = "-";
-                return;
-            }
-            const diff = newVal - oldVal;
-            const res = (diff / oldVal) * 100;
+            if (isNaN(oldVal) || isNaN(newVal) || oldVal === 0) { resultEl.innerText = "-"; return; }
+            const res = ((newVal - oldVal) / oldVal) * 100;
             const sign = res > 0 ? "증가" : (res < 0 ? "감소" : "변동 없음");
             resultEl.innerText = `${formatNum(Math.abs(res))}% ${sign}`;
             resultEl.style.color = res > 0 ? "#EF4444" : (res < 0 ? "#3B82F6" : "#4B5563");
         }
-
         function calculate4() {
             const val = parseFloat(document.getElementById('calc4-val').value);
             const percent = parseFloat(document.getElementById('calc4-percent').value);
             const resultEl = document.getElementById('calc4-result');
-
-            if (isNaN(val) || isNaN(percent)) {
-                resultEl.innerText = "-";
-                return;
-            }
-            
+            if (isNaN(val) || isNaN(percent)) { resultEl.innerText = "-"; return; }
             const res = val * (1 + percent / 100);
             resultEl.innerText = formatNum(res);
-
-            if (percent > 0) {
-                resultEl.style.color = "#EF4444";
-            } else if (percent < 0) {
-                resultEl.style.color = "#3B82F6";
-            } else {
-                resultEl.style.color = "#F97316";
-            }
+            if (percent > 0) resultEl.style.color = "#EF4444";
+            else if (percent < 0) resultEl.style.color = "#3B82F6";
+            else resultEl.style.color = "#F97316";
         }
 
         // --- 그래프 생성기 로직 ---
@@ -358,16 +268,38 @@
         let myChart = null;
         let dragSrcRow = null; 
 
-        // 모든 데이터셋의 합계를 계산하고 표시하는 함수
+        function getBaseColors() {
+            return [
+                { '0.7': 'rgba(59, 130, 246, 0.7)', '1': '#3B82F6' }, // 파랑
+                { '0.7': 'rgba(107, 114, 128, 0.7)', '1': '#6B7280' }, // 회색
+                { '0.7': 'rgba(239, 68, 68, 0.7)', '1': '#EF4444' }, // 빨강
+                { '0.7': 'rgba(16, 185, 129, 0.7)', '1': '#10B981' }, // 초록
+                { '0.7': 'rgba(245, 158, 11, 0.7)', '1': '#F59E0B' }, // 주황
+                { '0.7': 'rgba(139, 92, 246, 0.7)', '1': '#8B5CF6' }, // 보라
+            ];
+        }
+
+        function hexToRgba(hex, alpha) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length === 7) {
+                r = parseInt(hex.substring(1, 3), 16);
+                g = parseInt(hex.substring(3, 5), 16);
+                b = parseInt(hex.substring(5, 7), 16);
+            }
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
         function updateAllTotals() {
-            // 1. 메인 데이터셋 합계 계산
             const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
             const mainTotal = Array.from(dataInputs)
                 .map(input => Number(input.value.trim()) || 0)
                 .reduce((a, b) => a + b, 0);
             document.getElementById('data-sum-display').innerText = `합계: ${mainTotal.toLocaleString()}`;
 
-            // 2. 추가 데이터셋들의 합계 계산
             const additionalBlocks = document.querySelectorAll('.additional-dataset-block');
             additionalBlocks.forEach(block => {
                 const inputs = block.querySelectorAll('input[type="number"]');
@@ -386,7 +318,6 @@
             const chartType = document.getElementById('chartType').value;
             const { labels, datasets, totalSum } = parseAllData(chartType);
 
-            // 합계 업데이트 (기존 로직 대체)
             updateAllTotals();
 
             if (labels.length === 0 || datasets.length === 0 || (datasets[0].data.length === 0 && chartType !== 'singleStackedBar')) {
@@ -403,7 +334,7 @@
             let finalChartType = chartType;
             if (chartType === 'halfDoughnut') finalChartType = 'doughnut';
             if (chartType === 'square') finalChartType = 'scatter';
-            if (chartType === 'singleStackedBar') finalChartType = 'bar'; // 단일 막대도 Chart.js의 bar 타입 사용
+            if (chartType === 'singleStackedBar') finalChartType = 'bar'; 
 
             myChart = new Chart(ctx, {
                 type: finalChartType,
@@ -416,12 +347,14 @@
         function parseAllData(chartType) {
             const labelInputs = document.querySelectorAll('#data-input-container input[type="text"]');
             const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
+            const colorInputs = document.querySelectorAll('#data-input-container input[type="color"]');
             
-            // 첫 번째 데이터셋 이름 가져오기
             const mainDatasetName = document.getElementById('mainDatasetName').value || '데이터셋 1';
+            const mainDatasetColor = document.getElementById('mainDatasetColor').value;
 
             const labelValues = Array.from(labelInputs).map(input => input.value.trim());
             const dataValues = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
+            const rowColors = Array.from(colorInputs).map(input => input.value);
             
             let totalSum = dataValues.reduce((a, b) => a + b, 0);
             
@@ -429,9 +362,44 @@
             let datasets = [];
             let chartLabels = [];
 
-            if (chartType === 'singleStackedBar') {
-                // "100% 비율 막대" 모드
-                // Y축 레이블 정의 (데이터셋 1, 데이터셋 2...)
+            if (chartType === 'line' || chartType === 'radar') {
+                chartLabels = labelValues;
+                datasets.push({
+                    label: mainDatasetName,
+                    data: dataValues,
+                    borderColor: mainDatasetColor,
+                    backgroundColor: hexToRgba(mainDatasetColor, chartType === 'radar' ? 0.2 : 0.1),
+                    pointBackgroundColor: mainDatasetColor,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: mainDatasetColor,
+                    borderWidth: 3,
+                    tension: chartType === 'line' ? 0 : 0.1,
+                    fill: chartType === 'radar' 
+                });
+
+                document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
+                    const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
+                    const dsColor = block.querySelector('.dataset-color-picker')?.value || baseColors[(index+1)%baseColors.length]['1'];
+                    const inputs = block.querySelectorAll('input.dataset-value'); 
+                    const arr = Array.from(inputs).map(input => Number(input.value.trim()) || 0);
+                    
+                    datasets.push({
+                        label: name,
+                        data: arr,
+                        borderColor: dsColor,
+                        backgroundColor: hexToRgba(dsColor, chartType === 'radar' ? 0.2 : 0.1),
+                        pointBackgroundColor: dsColor,
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: dsColor,
+                        borderWidth: 3,
+                        tension: chartType === 'line' ? 0 : 0.1,
+                        fill: chartType === 'radar'
+                    });
+                });
+
+            } else if (chartType === 'singleStackedBar') {
                 chartLabels = [mainDatasetName];
                 const additionalBlocks = document.querySelectorAll('.additional-dataset-block');
                 additionalBlocks.forEach((block, i) => {
@@ -439,16 +407,18 @@
                     chartLabels.push(name);
                 });
 
-                // 각 입력 항목(Row)을 하나의 세그먼트(Chart Dataset)로 변환
-                const segments = labelValues.map((name, i) => ({
-                    label: name || `항목 ${i + 1}`,
-                    values: [dataValues[i]], // 데이터셋 1의 값
-                    colorSet: baseColors[i % baseColors.length]
-                }));
+                const segments = labelValues.map((name, i) => {
+                    const hexColor = rowColors[i] || baseColors[i % baseColors.length]['1'];
+                    return {
+                        label: name || `항목 ${i + 1}`,
+                        values: [dataValues[i]], 
+                        backgroundColor: hexToRgba(hexColor, 0.7),
+                        borderColor: hexToRgba(hexColor, 1.0)
+                    };
+                });
 
-                // 추가 데이터셋(추가 막대)의 값 수집
                 additionalBlocks.forEach((block) => {
-                    const inputs = block.querySelectorAll('input[type="number"]');
+                    const inputs = block.querySelectorAll('input.dataset-value');
                     inputs.forEach((input, i) => {
                         if (segments[i]) {
                             segments[i].values.push(Number(input.value) || 0);
@@ -456,7 +426,6 @@
                     });
                 });
 
-                // 각 막대(Column)별 합계 계산 (비율 계산용)
                 const barTotals = new Array(chartLabels.length).fill(0);
                 segments.forEach(seg => {
                     seg.values.forEach((val, colIndex) => {
@@ -464,7 +433,6 @@
                     });
                 });
 
-                // Chart.js 데이터셋 생성 (퍼센트로 변환)
                 datasets = segments.map(seg => {
                     const percentData = seg.values.map((val, colIndex) => {
                         const total = barTotals[colIndex];
@@ -474,38 +442,35 @@
                     return {
                         label: seg.label,
                         data: percentData,
-                        originalData: seg.values, // 툴팁용 원본 값
-                        backgroundColor: seg.colorSet['0.7'],
-                        borderColor: seg.colorSet['1'],
+                        originalData: seg.values, 
+                        backgroundColor: seg.backgroundColor,
+                        borderColor: seg.borderColor,
                         borderWidth: 1,
                         barPercentage: 0.6,
                     };
                 });
 
             } else {
-                // 일반 차트 모드
                 chartLabels = labelValues;
-                let chartData = dataValues;
+                const backgroundColors = rowColors.map(hex => hexToRgba(hex, 0.7));
+                const borderColors = rowColors.map(hex => hexToRgba(hex, 1.0));
 
                 datasets.push({
                     label: mainDatasetName,
-                    data: chartData,
-                    backgroundColor: getColors(chartLabels.length, 0.7, baseColors, 0),
-                    borderColor: getColors(chartLabels.length, 1, baseColors, 0),
-                    borderWidth: (chartType === 'line') ? 3 : 1.5,
-                    tension: chartType === 'line' ? 0 : 0.2
+                    data: dataValues,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1.5,
+                    tension: 0.2
                 });
 
                 if (chartType === 'square') {
-                    // (정사각형 차트 로직 유지)
                     const maxValue = Math.max(...dataValues, 0);
                     const squareData = dataValues.map(value => {
                         const MAX_SIDE = 100; 
                         const MIN_SIDE = 15;
                         let side = MIN_SIDE;
-                        if (maxValue > 0) {
-                            side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
-                        }
+                        if (maxValue > 0) side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
                         return { side: side, v: value };
                     });
                     const PADDING = 2;
@@ -530,36 +495,37 @@
                     datasets[0].data = mappedData;
                     datasets[0].pointStyle = 'rect';
                     datasets[0].radius = mappedData.map(d => d.side / 2);
-
-                } else if (chartType === 'line') {
-                    // 선 그래프 다중 데이터셋 처리
-                    document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
-                        const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
-                        const inputs = block.querySelectorAll('input[type="number"]');
-                        const arr = Array.from(inputs).map(input => Number(input.value.trim()) || 0);
-                        totalSum += arr.reduce((a, b) => a + b, 0);
-                        
-                        const colorSet = baseColors[(index + 1) % baseColors.length];
-                        datasets.push({
-                            label: name,
-                            data: arr,
-                            borderColor: colorSet['1'],
-                            backgroundColor: colorSet['0.7'],
-                            borderWidth: 3,
-                            tension: 0
-                        });
-                    });
-                }
+                    datasets[0].backgroundColor = backgroundColors;
+                } 
             }
 
             return { labels: chartLabels, datasets, totalSum };
         }
 
+        function updateUIForChartType(chartType) {
+            const isLineOrRadar = chartType === 'line' || chartType === 'radar';
+            
+            const mainColorContainer = document.getElementById('mainDatasetColorContainer');
+            if (isLineOrRadar) mainColorContainer.classList.remove('hidden');
+            else mainColorContainer.classList.add('hidden');
+
+            const inputContainer = document.getElementById('data-input-container');
+            if (isLineOrRadar) inputContainer.classList.add('hide-row-color');
+            else inputContainer.classList.remove('hide-row-color');
+
+            document.querySelectorAll('.additional-dataset-block').forEach(block => {
+                const picker = block.querySelector('.dataset-color-container');
+                if (picker) {
+                    if (isLineOrRadar) picker.classList.remove('hidden');
+                    else picker.classList.add('hidden');
+                }
+            });
+        }
+
         function buildChartOptions(chartType, sum, datasets) {
             const options = {
                 responsive: true,
-                maintainAspectRatio: true, 
-                events: ['mousemove', 'mouseout', 'touchstart', 'touchmove'],
+                maintainAspectRatio: true,
                 plugins: {
                     legend: { position: 'top', onClick: null },
                     title: { display: true, text: '생성된 그래프', font: { size: 18 } },
@@ -568,15 +534,11 @@
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
-                                
                                 if (chartType === 'singleStackedBar') {
-                                    // 툴팁: 원본 값 (퍼센트)
                                     const percent = context.raw.toFixed(1);
-                                    // singleStackedBar는 originalData 배열을 가짐
                                     const originalVal = context.dataset.originalData[context.dataIndex];
                                     return `${label}${originalVal.toLocaleString()} (${percent}%)`;
                                 }
-                                
                                 if (context.parsed.y !== null && chartType !== 'square') {
                                      return label + context.parsed.y.toLocaleString();
                                 }
@@ -587,18 +549,13 @@
                     datalabels: {
                         formatter: (value, context) => {
                             const label = context.chart.data.labels[context.dataIndex];
-                            
-                            // 100% 비율 막대 라벨 포맷
                             if (chartType === 'singleStackedBar') {
                                 if (value === 0) return '';
                                 const percent = value.toFixed(1);
-                                // originalData에서 해당 인덱스의 값을 가져옴
                                 const originalVal = context.dataset.originalData[context.dataIndex];
-                                // 공간이 너무 좁으면(5% 미만) 숨김
                                 if (value < 5) return ''; 
                                 return `${originalVal}\n(${percent}%)`;
                             }
-
                             if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
                                 const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                                 if (total === 0) return `${label}\n0 (0%)`;
@@ -609,8 +566,8 @@
                             if (chartType === 'square') {
                                 return `${context.chart.data.labels[context.dataIndex]}\n${value.v.toLocaleString()}`;
                             }
-                            
-                            return value.toLocaleString();
+                            if (typeof value === 'number') return value.toLocaleString();
+                            return value;
                         },
                         textShadowBlur: 10,
                         textShadowColor: 'rgba(0, 0, 0, 0.3)'
@@ -619,24 +576,18 @@
                 animation: false,
             };
 
-            // 가로형 설정 (비율 막대)
-            if (chartType === 'singleStackedBar') {
-                options.indexAxis = 'y'; 
-            }
+            if (chartType === 'singleStackedBar') options.indexAxis = 'y';
 
-            // 라벨 스타일링
-            if (['doughnut', 'polarArea', 'halfDoughnut', 'singleStackedBar'].includes(chartType)) {
+            if (['doughnut', 'polarArea', 'halfDoughnut', 'singleStackedBar', 'radar'].includes(chartType)) {
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'center', align: 'center', color: '#fff',
                     font: { weight: 'bold', size: 11 },
-                    textShadowBlur: 4,
-                    textShadowColor: 'rgba(0,0,0,0.5)'
+                    textShadowBlur: 4, textShadowColor: 'rgba(0,0,0,0.5)'
                 });
             } else if (chartType === 'square') {
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'center', align: 'center', color: '#000',
-                    font: { weight: 'bold', size: 12 },
-                    textShadowBlur: 0
+                    font: { weight: 'bold', size: 12 }, textShadowBlur: 0
                 });
             } else { 
                 Object.assign(options.plugins.datalabels, {
@@ -646,34 +597,19 @@
             }
             
             if (chartType === 'halfDoughnut') {
-                options.rotation = -90;
-                options.circumference = 180;
+                options.rotation = -90; options.circumference = 180;
                 options.plugins.datalabels.display = (context) => context.dataset.data[context.dataIndex] > 0;
             }
 
-            // 축 설정
             if (['bar', 'line', 'singleStackedBar'].includes(chartType)) {
                  const isStacked = chartType === 'singleStackedBar';
                  options.scales = { 
-                    x: { 
-                        display: true,
-                        stacked: isStacked, 
-                        beginAtZero: true,
-                        max: isStacked ? 100 : undefined, // 100% 고정
-                        grid: { display: !isStacked } // 비율 차트는 그리드 숨김이 깔끔
-                    }, 
-                    y: { 
-                        display: true, 
-                        stacked: isStacked,
-                        beginAtZero: true,
-                        grace: isStacked ? undefined : '15%',
-                        grid: { display: !isStacked }
-                    } 
+                    x: { display: true, stacked: isStacked, beginAtZero: true, max: isStacked ? 100 : undefined, grid: { display: !isStacked } }, 
+                    y: { display: true, stacked: isStacked, beginAtZero: true, grace: isStacked ? undefined : '15%', grid: { display: !isStacked } } 
                 };
             } else if (chartType === 'square') {
                 options.maintainAspectRatio = false;
-                options.plugins.legend.display = false; 
-                // ... (Square scale options kept same)
+                options.plugins.legend.display = false;
                 const squareData = datasets[0].data;
                 const totalHeight = Math.max(...squareData.map(d => d.y + d.side / 2), 0);
                 const totalWidth = Math.max(...squareData.map(d => d.x + d.side / 2), 0);
@@ -681,151 +617,133 @@
                     x: { display: false, min: 0, max: totalWidth * 1.05 },
                     y: { display: false, min: 0, max: totalHeight * 1.05 }
                 };
-                 options.layout = { padding: 0 };
+                options.layout = { padding: 0 };
             } else if (['radar', 'polarArea'].includes(chartType)) {
                  options.scales = { r: { display: true } };
             }
-
             return options;
         }
 
-        function getBaseColors() {
-            return [
-                { '0.7': 'rgba(59, 130, 246, 0.7)', '1': 'rgba(59, 130, 246, 1)' }, // 파랑 (Blue)
-                { '0.7': 'rgba(107, 114, 128, 0.7)', '1': 'rgba(107, 114, 128, 1)' }, // 회색 (Gray) - 순서 변경됨
-                { '0.7': 'rgba(239, 68, 68, 0.7)', '1': 'rgba(239, 68, 68, 1)' }, // 빨강 (Red)
-                { '0.7': 'rgba(16, 185, 129, 0.7)', '1': 'rgba(16, 185, 129, 1)' }, // 초록 (Green)
-                { '0.7': 'rgba(245, 158, 11, 0.7)', '1': 'rgba(245, 158, 11, 1)' }, // 주황 (Orange)
-                { '0.7': 'rgba(139, 92, 246, 0.7)', '1': 'rgba(139, 92, 246, 1)' }, // 보라 (Purple)
-            ];
-        }
-        
         function getColors(count, opacityKey, baseColors, offset = 0) {
             let colors = [];
             for (let i = 0; i < count; i++) {
-                colors.push(baseColors[(i + offset) % baseColors.length][opacityKey]);
+                const colorObj = baseColors[(i + offset) % baseColors.length];
+                const hex = colorObj['1'];
+                colors.push(opacityKey === '0.7' ? hexToRgba(hex, 0.7) : hexToRgba(hex, 1.0));
             }
             return colors;
         }
-        
-        // --- 드래그 앤 드롭 로직 ---
-        function handleDragStart(e) {
-            dragSrcRow = this;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', this.innerHTML);
-            this.classList.add('dragging');
-        }
 
-        function handleDragOver(e) {
-            if (e.preventDefault) e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            return false;
-        }
-
-        function handleDragEnd(e) {
-            this.classList.remove('dragging');
-            dragSrcRow = null;
-            this.setAttribute('draggable', 'false');
-        }
-
+        function handleDragStart(e) { dragSrcRow = this; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', this.innerHTML); this.classList.add('dragging'); }
+        function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
+        function handleDragEnd(e) { this.classList.remove('dragging'); dragSrcRow = null; this.setAttribute('draggable', 'false'); }
         function handleDrop(e) {
             if (e.stopPropagation) e.stopPropagation();
-
             if (dragSrcRow !== this) {
                 const container = document.getElementById('data-input-container');
                 const rows = Array.from(container.children);
                 const fromIndex = rows.indexOf(dragSrcRow);
                 const toIndex = rows.indexOf(this);
+                if (fromIndex < toIndex) this.after(dragSrcRow); else this.before(dragSrcRow);
 
-                if (fromIndex < toIndex) {
-                    this.after(dragSrcRow);
-                } else {
-                    this.before(dragSrcRow);
-                }
-
-                // 선 그래프용 추가 데이터셋 순서 동기화
                 document.querySelectorAll('.additional-dataset-block .dataset-body').forEach(body => {
                     const subRows = Array.from(body.children);
                     if (subRows[fromIndex] && subRows[toIndex]) {
                         const subSrc = subRows[fromIndex];
                         const subTarget = subRows[toIndex];
-                        if (fromIndex < toIndex) {
-                            subTarget.after(subSrc);
-                        } else {
-                            subTarget.before(subSrc);
-                        }
+                        if (fromIndex < toIndex) subTarget.after(subSrc); else subTarget.before(subSrc);
                     }
                 });
-
                 syncLineDataInputs();
                 createOrUpdateChart();
             }
             return false;
         }
 
-        function addInputRow(label = '', value = '') {
+        function addInputRow(label = '', value = '', customColor = null) {
             const container = document.getElementById('data-input-container');
+            const rowCount = container.children.length;
+            const baseColors = getBaseColors();
+            const defaultColor = customColor || baseColors[rowCount % baseColors.length]['1'];
+
             const row = document.createElement('div');
             row.className = 'flex items-center gap-2 data-row group bg-white p-2 rounded-lg border border-transparent hover:border-gray-200 transition-all';
             row.draggable = false; 
             
             const dragHandle = `<div class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>`;
+            const colorPickerHtml = `<div class="relative row-color-wrapper"><div class="color-indicator w-6 h-6 rounded-full mr-1 flex-shrink-0 shadow-sm border border-gray-200" style="background-color: ${defaultColor};"></div><input type="color" class="absolute inset-0 opacity-0 cursor-pointer" value="${defaultColor}"></div>`;
 
             row.innerHTML = `
                 ${dragHandle}
+                ${colorPickerHtml}
                 <input type="text" value="${label}" class="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="항목">
                 <input type="number" value="${value}" class="w-24 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right" placeholder="수치">
                 <button onclick="removeInputRow(this)" class="text-red-400 hover:text-red-600 p-2 rounded-lg transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
             `;
 
             const handleDiv = row.querySelector('.drag-handle');
-            handleDiv.addEventListener('mouseenter', () => {
-                row.setAttribute('draggable', 'true');
-            });
-            handleDiv.addEventListener('mouseleave', () => {
-                if (!row.classList.contains('dragging')) {
-                    row.setAttribute('draggable', 'false');
-                }
-            });
+            const colorInput = row.querySelector('input[type="color"]');
+            const colorIndicator = row.querySelector('.color-indicator');
 
-            row.addEventListener('dragstart', handleDragStart);
-            row.addEventListener('dragover', handleDragOver);
-            row.addEventListener('drop', handleDrop);
-            row.addEventListener('dragend', handleDragEnd);
+            handleDiv.addEventListener('mouseenter', () => row.setAttribute('draggable', 'true'));
+            handleDiv.addEventListener('mouseleave', () => { if (!row.classList.contains('dragging')) row.setAttribute('draggable', 'false'); });
+            row.addEventListener('dragstart', handleDragStart); row.addEventListener('dragover', handleDragOver); row.addEventListener('drop', handleDrop); row.addEventListener('dragend', handleDragEnd);
+
+            colorInput.addEventListener('input', (e) => {
+                colorIndicator.style.backgroundColor = e.target.value;
+                createOrUpdateChart();
+            });
 
             container.appendChild(row);
             syncLineDataInputs();
         }
 
-        function removeInputRow(button) {
-            button.closest('.data-row').remove();
-            syncLineDataInputs();
-            createOrUpdateChart();
-        }
+        function removeInputRow(button) { button.closest('.data-row').remove(); syncLineDataInputs(); createOrUpdateChart(); }
 
         function addDataset() {
             const container = document.getElementById('additional-datasets-container');
             const block = document.createElement('div');
-            block.className = 'additional-dataset-block border p-3 rounded-lg';
+            block.className = 'additional-dataset-block border p-3 rounded-lg relative';
             const datasetCount = container.children.length + 2;
+            const baseColors = getBaseColors();
+            const defaultColor = baseColors[(datasetCount - 1) % baseColors.length]['1'];
+            
+            const colorPickerHtml = `
+                <div class="dataset-color-container hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">색상</label>
+                    <div class="relative h-[38px] w-[40px]">
+                        <input type="color" class="dataset-color-picker absolute inset-0 w-full h-full p-0 border-0 rounded cursor-pointer" value="${defaultColor}">
+                    </div>
+                </div>
+            `;
+
             block.innerHTML = `
-                <div class="flex justify-between items-center mb-2">
-                    <input type="text" class="dataset-name w-full px-2 py-1 border-b" placeholder="데이터셋 ${datasetCount} 이름">
-                    <button onclick="removeDataset(this)" class="bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600 transition">X</button>
+                <div class="flex gap-2 items-end mb-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">데이터셋 이름</label>
+                        <input type="text" class="dataset-name w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" value="데이터셋 ${datasetCount}">
+                    </div>
+                    ${colorPickerHtml}
+                    <button onclick="removeDataset(this)" class="bg-red-500 text-white font-bold h-[38px] w-[40px] rounded-lg hover:bg-red-600 transition flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                    </button>
                 </div>
                 <div class="dataset-body space-y-2"></div>
-                <!-- 합계 표시 영역 추가 -->
                 <div class="dataset-total-display text-right font-bold text-lg text-gray-800 mt-2">합계: 0</div>
             `;
             container.appendChild(block);
+            
+            const colorPicker = block.querySelector('.dataset-color-picker');
+            if(colorPicker) colorPicker.addEventListener('input', createOrUpdateChart);
+
             syncLineDataInputs();
-            updateAllTotals(); // 새로 추가된 데이터셋의 합계 초기화 (0)
+            updateAllTotals();
+            
+            const chartType = document.getElementById('chartType').value;
+            updateUIForChartType(chartType);
         }
 
-        function removeDataset(button) {
-            button.closest('.additional-dataset-block').remove();
-            createOrUpdateChart();
-        }
+        function removeDataset(button) { button.closest('.additional-dataset-block').remove(); createOrUpdateChart(); }
 
         function syncLineDataInputs() {
             const labels = Array.from(document.querySelectorAll('#data-input-container input[type="text"]')).map(input => input.value.trim());
@@ -839,7 +757,7 @@
                     row.className = 'flex items-center gap-2';
                     row.innerHTML = `
                         <span class="synced-label" title="${label}">${label}</span>
-                        <input type="number" value="${value}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="수치">
+                        <input type="number" value="${value}" class="w-2/5 px-2 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dataset-value" placeholder="수치">
                         <div class="w-1/5"></div>
                     `;
                     body.appendChild(row);
@@ -863,9 +781,10 @@
         }
 
         function setupInitialFields() {
-            addInputRow('찬성', 30);
-            addInputRow('모름', 20);
-            addInputRow('반대', 50);
+            const baseColors = getBaseColors();
+            addInputRow('찬성', 30, baseColors[0]['1']);
+            addInputRow('모름', 20, baseColors[1]['1']);
+            addInputRow('반대', 50, baseColors[2]['1']);
         }
         
         window.onload = () => {
@@ -873,25 +792,34 @@
             createOrUpdateChart();
 
             document.getElementById('chartType').addEventListener('change', (e) => {
-                const isMultiSet = e.target.value === 'line' || e.target.value === 'singleStackedBar'; 
+                const chartType = e.target.value;
+                const isMultiSet = chartType === 'line' || chartType === 'singleStackedBar' || chartType === 'radar'; 
+                
                 document.getElementById('addDatasetBtn').classList.toggle('hidden', !isMultiSet);
                 const container = document.getElementById('additional-datasets-container');
                 container.classList.toggle('hidden', !isMultiSet);
+                
                 if (!isMultiSet) container.innerHTML = '';
+                
+                updateUIForChartType(chartType);
                 createOrUpdateChart();
             });
 
             document.getElementById('mainDatasetName').addEventListener('input', createOrUpdateChart);
+            document.getElementById('mainDatasetColor').addEventListener('input', createOrUpdateChart); 
             document.getElementById('addFieldBtn').addEventListener('click', () => addInputRow());
             document.getElementById('addDatasetBtn').addEventListener('click', addDataset);
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
             document.getElementById('data-input-container').addEventListener('input', () => {
                 syncLineDataInputs();
                 createOrUpdateChart();
+                updateAllTotals();
             });
-            document.getElementById('additional-datasets-container').addEventListener('input', createOrUpdateChart);
+            document.getElementById('additional-datasets-container').addEventListener('input', () => {
+                createOrUpdateChart();
+                updateAllTotals();
+            });
             
-            // --- 퍼센트 계산기: 실시간 이벤트 리스너 등록 ---
             document.getElementById('calc1-total').addEventListener('input', calculate1);
             document.getElementById('calc1-percent').addEventListener('input', calculate1);
             document.getElementById('calc2-total').addEventListener('input', calculate2);
