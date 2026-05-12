@@ -286,14 +286,16 @@
         let isDataLabelVisible = true; // 라벨 표시 여부 상태 변수
         const squareBottomAlignPlugin = {
             id: 'squareBottomAlign',
-            beforeDatasetsDraw(chart) {
+            afterDatasetsDraw(chart) {
                 if (chart.options.customChartType !== 'square') return;
                 const chartArea = chart.chartArea;
+                const ctx = chart.ctx;
                 const meta = chart.getDatasetMeta(0);
-                if (!chartArea || !meta) return;
+                const dataset = chart.data.datasets[0];
+                const rawData = dataset.data || [];
+                if (!chartArea || !meta || !ctx) return;
 
                 const baseGap = 4;
-                const rawData = chart.data.datasets[0].data || [];
                 const baseTotalWidth = rawData.reduce((sum, item) => {
                     const radius = item.side / 2 || 0;
                     return sum + radius * 2;
@@ -316,15 +318,47 @@
                 const bottomPixel = chartArea.bottom - 4;
                 let currentX = startX;
 
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 12px Inter, sans-serif';
+
                 meta.data.forEach((point, index) => {
+                    const item = rawData[index];
+                    if (!item) return;
                     const baseRadius = rawData[index]?.side / 2 || 0;
                     const radius = baseRadius * scale;
-                    point.options.radius = radius;
-                    point.options.hoverRadius = radius;
+                    const side = radius * 2;
+                    const x = currentX;
+                    const y = bottomPixel - side;
+                    const label = chart.data.labels[index] || '';
+                    const value = item.v?.toLocaleString?.() || item.v || '';
+
                     point.x = currentX + radius;
                     point.y = bottomPixel - radius;
+                    point.options.radius = 0;
+                    point.options.hoverRadius = 0;
+
+                    ctx.fillStyle = Array.isArray(dataset.backgroundColor)
+                        ? dataset.backgroundColor[index]
+                        : dataset.backgroundColor;
+                    ctx.strokeStyle = Array.isArray(dataset.borderColor)
+                        ? dataset.borderColor[index]
+                        : dataset.borderColor;
+                    ctx.lineWidth = dataset.borderWidth || 1.5;
+                    ctx.fillRect(x, y, side, side);
+                    ctx.strokeRect(x, y, side, side);
+
+                    if (isDataLabelVisible) {
+                        ctx.fillStyle = '#000';
+                        ctx.fillText(label, x + radius, y + radius - 8);
+                        ctx.fillText(value, x + radius, y + radius + 8);
+                    }
+
                     currentX += radius * 2 + gap;
                 });
+
+                ctx.restore();
             }
         };
 
@@ -546,9 +580,9 @@
 
                     datasets[0].data = mappedData;
                     datasets[0].pointStyle = 'rect';
-                    datasets[0].radius = mappedData.map(d => d.side / 2);
-                    datasets[0].hoverRadius = mappedData.map(d => d.side / 2);
-                    datasets[0].hitRadius = 4;
+                    datasets[0].radius = 0;
+                    datasets[0].hoverRadius = 0;
+                    datasets[0].hitRadius = 0;
                     datasets[0].backgroundColor = backgroundColors;
                 } 
             }
@@ -628,6 +662,7 @@
                         // 수치 표시 여부 제어
                         display: function(context) {
                             if (!isDataLabelVisible) return false;
+                            if (chartType === 'square') return false;
                             
                             // halfDoughnut 예외 처리 로직을 여기서 통합
                             if (chartType === 'halfDoughnut') {
