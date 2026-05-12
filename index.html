@@ -317,7 +317,6 @@
                 ctx.save();
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.font = 'bold 12px Inter, sans-serif';
 
                 rawData.forEach(item => {
                     const side = item.side * scale;
@@ -326,21 +325,29 @@
                     const y = bottomPixel - side;
                     const label = chart.data.labels[item.index] || '';
                     const value = item.v?.toLocaleString?.() || item.v || '';
+                    const fillColor = item.fillColor
+                        || (Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor[item.index] : dataset.backgroundColor)
+                        || 'rgba(59, 130, 246, 0.7)';
+                    const strokeColor = item.strokeColor
+                        || (Array.isArray(dataset.borderColor) ? dataset.borderColor[item.index] : dataset.borderColor)
+                        || '#3B82F6';
 
-                    ctx.fillStyle = Array.isArray(dataset.backgroundColor)
-                        ? dataset.backgroundColor[item.index]
-                        : dataset.backgroundColor;
-                    ctx.strokeStyle = Array.isArray(dataset.borderColor)
-                        ? dataset.borderColor[item.index]
-                        : dataset.borderColor;
+                    ctx.fillStyle = fillColor;
+                    ctx.strokeStyle = strokeColor;
                     ctx.lineWidth = dataset.borderWidth || 1.5;
                     ctx.fillRect(x, y, side, side);
                     ctx.strokeRect(x, y, side, side);
 
                     if (isDataLabelVisible) {
-                        ctx.fillStyle = '#000';
-                        ctx.fillText(label, x + radius, y + radius - 8);
-                        ctx.fillText(value, x + radius, y + radius + 8);
+                        const fontSize = Math.max(10, Math.min(14, side * 0.14));
+                        ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+                        ctx.fillStyle = getReadableTextColor(fillColor);
+                        if (side >= 34) {
+                            ctx.fillText(label, x + radius, y + radius - fontSize * 0.6);
+                            ctx.fillText(value, x + radius, y + radius + fontSize * 0.8);
+                        } else if (side >= 18) {
+                            ctx.fillText(value, x + radius, y + radius);
+                        }
                     }
 
                     currentX += radius * 2 + gap;
@@ -373,6 +380,16 @@
                 b = parseInt(hex.substring(5, 7), 16);
             }
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function getReadableTextColor(color) {
+            const rgba = String(color || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (!rgba) return '#111827';
+            const r = Number(rgba[1]);
+            const g = Number(rgba[2]);
+            const b = Number(rgba[3]);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness < 135 ? '#FFFFFF' : '#111827';
         }
 
         function updateAllTotals() {
@@ -555,7 +572,13 @@
                         const side = maxValue > 0 && clampedValue > 0
                             ? Math.sqrt(clampedValue / maxValue) * MAX_SIDE
                             : 0;
-                        return { side: side, v: value, index };
+                        return {
+                            side: side,
+                            v: value,
+                            index,
+                            fillColor: backgroundColors[index],
+                            strokeColor: borderColors[index]
+                        };
                     });
                     const PADDING = 4;
                     let currentX = 0, maxSideInRow = 0;
@@ -565,7 +588,15 @@
                         const yPos = square.side / 2;
                         currentX += square.side + PADDING;
                         maxSideInRow = Math.max(maxSideInRow, square.side);
-                        return { x: xPos, y: yPos, v: square.v, side: square.side };
+                        return {
+                            x: xPos,
+                            y: yPos,
+                            v: square.v,
+                            side: square.side,
+                            index: square.index,
+                            fillColor: square.fillColor,
+                            strokeColor: square.strokeColor
+                        };
                     });
 
                     datasets[0].data = mappedData;
@@ -574,6 +605,7 @@
                     datasets[0].hoverRadius = 0;
                     datasets[0].hitRadius = 0;
                     datasets[0].backgroundColor = backgroundColors;
+                    datasets[0].borderColor = borderColors;
                 } 
             }
 
