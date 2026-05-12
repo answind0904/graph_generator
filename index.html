@@ -184,8 +184,8 @@
         </div>
 
         <!-- 오른쪽: 그래프가 그려질 영역 -->
-        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center min-h-[400px]">
-            <canvas id="myChart"></canvas>
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center h-[460px] lg:h-[560px]">
+            <canvas id="myChart" class="w-full h-full"></canvas>
         </div>
     </div>
 
@@ -653,9 +653,11 @@
 
             if (['bar', 'line', 'singleStackedBar'].includes(chartType)) {
                  const isStacked = chartType === 'singleStackedBar';
+                 const useTallYAxis = chartType === 'bar' || chartType === 'line';
+                 if (useTallYAxis) options.maintainAspectRatio = false;
                  options.scales = { 
                     x: { display: true, stacked: isStacked, beginAtZero: true, max: isStacked ? 100 : undefined, grid: { display: !isStacked } }, 
-                    y: { display: true, stacked: isStacked, beginAtZero: true, grace: isStacked ? undefined : '15%', grid: { display: !isStacked } } 
+                    y: { display: true, stacked: isStacked, beginAtZero: true, grace: useTallYAxis ? '30%' : undefined, grid: { display: !isStacked } } 
                 };
             } else if (chartType === 'square') {
                 options.maintainAspectRatio = false;
