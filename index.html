@@ -490,24 +490,16 @@
                         if (maxValue > 0) side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
                         return { side: side, v: value };
                     });
-                    const PADDING = 2;
-                    const totalWidth = squareData.reduce((sum, s) => sum + s.side + PADDING, 0);
-                    const wrapWidth = totalWidth / 2.2;
-                    let currentX = 0, currentY = 0, maxSideInRow = 0;
+                    const PADDING = 8;
+                    let currentX = 0, maxSideInRow = 0;
                     
                     const mappedData = squareData.map(square => {
-                        if (currentX > 0 && currentX + square.side + PADDING > wrapWidth) {
-                            currentY += maxSideInRow + PADDING;
-                            currentX = 0; maxSideInRow = 0;
-                        }
                         const xPos = currentX + (square.side / 2);
-                        const yPos = currentY + (square.side / 2);
+                        const yPos = square.side / 2;
                         currentX += square.side + PADDING;
                         maxSideInRow = Math.max(maxSideInRow, square.side);
                         return { x: xPos, y: yPos, v: square.v, side: square.side };
                     });
-                    const totalHeight = currentY + maxSideInRow;
-                    mappedData.forEach(d => { d.y = totalHeight - d.y; });
 
                     datasets[0].data = mappedData;
                     datasets[0].pointStyle = 'rect';
