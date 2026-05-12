@@ -284,6 +284,21 @@
         let myChart = null;
         let dragSrcRow = null;
         let isDataLabelVisible = true; // 라벨 표시 여부 상태 변수
+        const squareBottomAlignPlugin = {
+            id: 'squareBottomAlign',
+            beforeDatasetsDraw(chart) {
+                if (chart.options.customChartType !== 'square') return;
+                const yScale = chart.scales.y;
+                const meta = chart.getDatasetMeta(0);
+                if (!yScale || !meta) return;
+
+                const bottomPixel = yScale.getPixelForValue(0);
+                meta.data.forEach(point => {
+                    const radius = point.options.radius || 0;
+                    point.y = bottomPixel - radius;
+                });
+            }
+        };
 
         function getBaseColors() {
             return [
@@ -357,7 +372,7 @@
                 type: finalChartType,
                 data: { labels, datasets },
                 options,
-                plugins: [ChartDataLabels],
+                plugins: [squareBottomAlignPlugin, ChartDataLabels],
             });
         }
         
@@ -535,6 +550,7 @@
             const options = {
                 responsive: true,
                 maintainAspectRatio: true,
+                customChartType: chartType,
                 plugins: {
                     legend: { position: 'top', onClick: null },
                     title: { display: true, text: '생성된 그래프', font: { size: 18 } },
@@ -661,7 +677,7 @@
                     x: { display: false, min: 0, max: totalWidth * 1.05 },
                     y: { display: false, min: 0, max: totalHeight * 1.05 }
                 };
-                options.layout = { padding: 0 };
+                options.layout = { padding: { bottom: 4 } };
             } else if (['radar', 'polarArea'].includes(chartType)) {
                  options.scales = { r: { display: true } };
             }
