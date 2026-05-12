@@ -292,10 +292,23 @@
                 const meta = chart.getDatasetMeta(0);
                 if (!chartArea || !meta) return;
 
-                const gap = 4;
-                const totalSquareWidth = meta.data.reduce((sum, point) => {
-                    const radius = point.options.radius || 0;
+                const baseGap = 4;
+                const rawData = chart.data.datasets[0].data || [];
+                const baseTotalWidth = rawData.reduce((sum, item) => {
+                    const radius = item.side / 2 || 0;
                     return sum + radius * 2;
+                }, 0) + Math.max(meta.data.length - 1, 0) * baseGap;
+                const maxSide = rawData.reduce((max, item) => {
+                    const radius = item.side / 2 || 0;
+                    return Math.max(max, radius * 2);
+                }, 0);
+                const widthScale = baseTotalWidth > 0 ? chartArea.width * 0.92 / baseTotalWidth : 1;
+                const heightScale = maxSide > 0 ? chartArea.height * 0.78 / maxSide : 1;
+                const scale = Math.max(1, Math.min(widthScale, heightScale));
+                const gap = baseGap;
+                const totalSquareWidth = rawData.reduce((sum, item) => {
+                    const radius = item.side / 2 || 0;
+                    return sum + radius * 2 * scale;
                 }, 0);
                 const totalGapWidth = Math.max(meta.data.length - 1, 0) * gap;
                 const totalWidth = totalSquareWidth + totalGapWidth;
@@ -303,8 +316,11 @@
                 const bottomPixel = chartArea.bottom - 4;
                 let currentX = startX;
 
-                meta.data.forEach(point => {
-                    const radius = point.options.radius || 0;
+                meta.data.forEach((point, index) => {
+                    const baseRadius = rawData[index]?.side / 2 || 0;
+                    const radius = baseRadius * scale;
+                    point.options.radius = radius;
+                    point.options.hoverRadius = radius;
                     point.x = currentX + radius;
                     point.y = bottomPixel - radius;
                     currentX += radius * 2 + gap;
@@ -531,6 +547,8 @@
                     datasets[0].data = mappedData;
                     datasets[0].pointStyle = 'rect';
                     datasets[0].radius = mappedData.map(d => d.side / 2);
+                    datasets[0].hoverRadius = mappedData.map(d => d.side / 2);
+                    datasets[0].hitRadius = 4;
                     datasets[0].backgroundColor = backgroundColors;
                 } 
             }
