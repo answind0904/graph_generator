@@ -292,14 +292,14 @@
                 const ctx = chart.ctx;
                 const meta = chart.getDatasetMeta(0);
                 const dataset = chart.data.datasets[0];
-                const rawData = dataset.data || [];
+                const rawData = (dataset.data || []).filter(item => item.side > 0);
                 if (!chartArea || !meta || !ctx) return;
 
                 const baseGap = 4;
                 const baseTotalWidth = rawData.reduce((sum, item) => {
                     const radius = item.side / 2 || 0;
                     return sum + radius * 2;
-                }, 0) + Math.max(meta.data.length - 1, 0) * baseGap;
+                }, 0) + Math.max(rawData.length - 1, 0) * baseGap;
                 const maxSide = rawData.reduce((max, item) => {
                     const radius = item.side / 2 || 0;
                     return Math.max(max, radius * 2);
@@ -312,7 +312,7 @@
                     const radius = item.side / 2 || 0;
                     return sum + radius * 2 * scale;
                 }, 0);
-                const totalGapWidth = Math.max(meta.data.length - 1, 0) * gap;
+                const totalGapWidth = Math.max(rawData.length - 1, 0) * gap;
                 const totalWidth = totalSquareWidth + totalGapWidth;
                 const startX = chartArea.left + Math.max((chartArea.width - totalWidth) / 2, 0);
                 const bottomPixel = chartArea.bottom - 4;
@@ -323,15 +323,15 @@
                 ctx.textBaseline = 'middle';
                 ctx.font = 'bold 12px Inter, sans-serif';
 
-                meta.data.forEach((point, index) => {
-                    const item = rawData[index];
-                    if (!item) return;
-                    const baseRadius = rawData[index]?.side / 2 || 0;
+                rawData.forEach(item => {
+                    const point = meta.data[item.index];
+                    if (!point) return;
+                    const baseRadius = item.side / 2 || 0;
                     const radius = baseRadius * scale;
                     const side = radius * 2;
                     const x = currentX;
                     const y = bottomPixel - side;
-                    const label = chart.data.labels[index] || '';
+                    const label = chart.data.labels[item.index] || '';
                     const value = item.v?.toLocaleString?.() || item.v || '';
 
                     point.x = currentX + radius;
@@ -340,10 +340,10 @@
                     point.options.hoverRadius = 0;
 
                     ctx.fillStyle = Array.isArray(dataset.backgroundColor)
-                        ? dataset.backgroundColor[index]
+                        ? dataset.backgroundColor[item.index]
                         : dataset.backgroundColor;
                     ctx.strokeStyle = Array.isArray(dataset.borderColor)
-                        ? dataset.borderColor[index]
+                        ? dataset.borderColor[item.index]
                         : dataset.borderColor;
                     ctx.lineWidth = dataset.borderWidth || 1.5;
                     ctx.fillRect(x, y, side, side);
@@ -559,13 +559,15 @@
                 });
 
                 if (chartType === 'square') {
-                    const maxValue = Math.max(...dataValues, 0);
-                    const squareData = dataValues.map(value => {
+                    const nonNegativeValues = dataValues.map(value => Math.max(value, 0));
+                    const maxValue = Math.max(...nonNegativeValues, 0);
+                    const squareData = dataValues.map((value, index) => {
                         const MAX_SIDE = 100; 
-                        const MIN_SIDE = 15;
-                        let side = MIN_SIDE;
-                        if (maxValue > 0) side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
-                        return { side: side, v: value };
+                        const clampedValue = Math.max(value, 0);
+                        const side = maxValue > 0 && clampedValue > 0
+                            ? Math.sqrt(clampedValue / maxValue) * MAX_SIDE
+                            : 0;
+                        return { side: side, v: value, index };
                     });
                     const PADDING = 4;
                     let currentX = 0, maxSideInRow = 0;
@@ -736,8 +738,9 @@
                 options.maintainAspectRatio = false;
                 options.plugins.legend.display = false;
                 const squareData = datasets[0].data;
-                const totalHeight = Math.max(...squareData.map(d => d.y + d.side / 2), 0);
-                const totalWidth = Math.max(...squareData.map(d => d.x + d.side / 2), 0);
+                const visibleSquareData = squareData.filter(d => d.side > 0);
+                const totalHeight = Math.max(...visibleSquareData.map(d => d.y + d.side / 2), 1);
+                const totalWidth = Math.max(...visibleSquareData.map(d => d.x + d.side / 2), 1);
                 options.scales = {
                     x: { display: false, min: 0, max: totalWidth * 1.05 },
                     y: { display: false, min: 0, max: totalHeight * 1.05 }
