@@ -288,14 +288,26 @@
             id: 'squareBottomAlign',
             beforeDatasetsDraw(chart) {
                 if (chart.options.customChartType !== 'square') return;
-                const yScale = chart.scales.y;
+                const chartArea = chart.chartArea;
                 const meta = chart.getDatasetMeta(0);
-                if (!yScale || !meta) return;
+                if (!chartArea || !meta) return;
 
-                const bottomPixel = yScale.getPixelForValue(0);
+                const gap = 4;
+                const totalSquareWidth = meta.data.reduce((sum, point) => {
+                    const radius = point.options.radius || 0;
+                    return sum + radius * 2;
+                }, 0);
+                const totalGapWidth = Math.max(meta.data.length - 1, 0) * gap;
+                const totalWidth = totalSquareWidth + totalGapWidth;
+                const startX = chartArea.left + Math.max((chartArea.width - totalWidth) / 2, 0);
+                const bottomPixel = chartArea.bottom - 4;
+                let currentX = startX;
+
                 meta.data.forEach(point => {
                     const radius = point.options.radius || 0;
+                    point.x = currentX + radius;
                     point.y = bottomPixel - radius;
+                    currentX += radius * 2 + gap;
                 });
             }
         };
@@ -505,7 +517,7 @@
                         if (maxValue > 0) side = (value / maxValue) * (MAX_SIDE - MIN_SIDE) + MIN_SIDE;
                         return { side: side, v: value };
                     });
-                    const PADDING = 8;
+                    const PADDING = 4;
                     let currentX = 0, maxSideInRow = 0;
                     
                     const mappedData = squareData.map(square => {
