@@ -286,31 +286,27 @@
         let isDataLabelVisible = true; // 라벨 표시 여부 상태 변수
         const squareBottomAlignPlugin = {
             id: 'squareBottomAlign',
-            afterDatasetsDraw(chart) {
+            afterDraw(chart) {
                 if (chart.options.customChartType !== 'square') return;
                 const chartArea = chart.chartArea;
                 const ctx = chart.ctx;
-                const meta = chart.getDatasetMeta(0);
                 const dataset = chart.data.datasets[0];
                 const rawData = (dataset.data || []).filter(item => item.side > 0);
-                if (!chartArea || !meta || !ctx) return;
+                if (!chartArea || !ctx || rawData.length === 0) return;
 
                 const baseGap = 4;
                 const baseTotalWidth = rawData.reduce((sum, item) => {
-                    const radius = item.side / 2 || 0;
-                    return sum + radius * 2;
+                    return sum + item.side;
                 }, 0) + Math.max(rawData.length - 1, 0) * baseGap;
                 const maxSide = rawData.reduce((max, item) => {
-                    const radius = item.side / 2 || 0;
-                    return Math.max(max, radius * 2);
+                    return Math.max(max, item.side);
                 }, 0);
                 const widthScale = baseTotalWidth > 0 ? chartArea.width * 0.92 / baseTotalWidth : 1;
                 const heightScale = maxSide > 0 ? chartArea.height * 0.78 / maxSide : 1;
                 const scale = Math.max(1, Math.min(widthScale, heightScale));
                 const gap = baseGap;
                 const totalSquareWidth = rawData.reduce((sum, item) => {
-                    const radius = item.side / 2 || 0;
-                    return sum + radius * 2 * scale;
+                    return sum + item.side * scale;
                 }, 0);
                 const totalGapWidth = Math.max(rawData.length - 1, 0) * gap;
                 const totalWidth = totalSquareWidth + totalGapWidth;
@@ -324,20 +320,12 @@
                 ctx.font = 'bold 12px Inter, sans-serif';
 
                 rawData.forEach(item => {
-                    const point = meta.data[item.index];
-                    if (!point) return;
-                    const baseRadius = item.side / 2 || 0;
-                    const radius = baseRadius * scale;
-                    const side = radius * 2;
+                    const side = item.side * scale;
+                    const radius = side / 2;
                     const x = currentX;
                     const y = bottomPixel - side;
                     const label = chart.data.labels[item.index] || '';
                     const value = item.v?.toLocaleString?.() || item.v || '';
-
-                    point.x = currentX + radius;
-                    point.y = bottomPixel - radius;
-                    point.options.radius = 0;
-                    point.options.hoverRadius = 0;
 
                     ctx.fillStyle = Array.isArray(dataset.backgroundColor)
                         ? dataset.backgroundColor[item.index]
