@@ -17,6 +17,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js 라이브러리 로드 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Sankey 개발중 플러그인 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.14.0/dist/chartjs-chart-sankey.min.js"></script>
     <!-- Chart.js 데이터 라벨 플러그인 로드 -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -122,6 +124,7 @@
                     <option value="polarArea">폴라 차트</option>
                     <option value="radar">레이더 차트</option>
                     <option value="square">정사각형 차트</option>
+                    <option value="sankey">생키 차트 (개발중)</option>
                 </select>
             </div>
 
@@ -157,6 +160,23 @@
             <div id="additional-datasets-container" class="hidden space-y-4 mb-4">
                 <!-- 데이터셋 추가 버튼으로 동적 생성 -->
             </div>
+
+            <div id="sankey-transitions-panel" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-amber-900">샌키 전환 관계</h3>
+                        <p class="text-xs text-amber-800 mt-1">어느 항목이 다음 데이터셋의 어느 항목으로 이동했는지 입력합니다.</p>
+                    </div>
+                    <button id="addSankeyTransitionBtn" type="button" class="bg-amber-500 text-white font-bold py-2 px-3 rounded-lg hover:bg-amber-600 transition text-xs whitespace-nowrap">
+                        전환 추가
+                    </button>
+                </div>
+                <div id="sankey-transitions-container" class="space-y-2"></div>
+                <div id="sankey-transition-empty" class="hidden text-xs text-amber-800 bg-white/70 border border-amber-100 rounded-lg p-3">
+                    데이터셋을 하나 이상 추가하면 전환 관계를 입력할 수 있습니다.
+                </div>
+            </div>
+
             <button id="addDatasetBtn" class="hidden w-full bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-lg hover:bg-indigo-200 transition duration-300 mb-6">
                 데이터셋 추가 (비교 데이터)
             </button>
@@ -461,7 +481,68 @@
             let datasets = [];
             let chartLabels = [];
 
-            if (chartType === 'line' || chartType === 'radar') {
+            if (chartType === 'sankey') {
+                const stages = getSankeyStagesFromUI(dataValues, mainDatasetName, mainDatasetColor, baseColors);
+                const transitionRows = readSankeyTransitionRows();
+
+                const nodeLabels = {};
+                const nodeColors = {};
+                const nodePriority = {};
+                const getItemColor = (itemIndex) => hexToRgba(rowColors[itemIndex] || baseColors[itemIndex % baseColors.length]['1'], 0.75);
+
+                const getItemId = (stageIndex, itemIndex) => `stage-${stageIndex}-item-${itemIndex}`;
+                const ensureItemNode = (stageIndex, itemIndex) => {
+                    const id = getItemId(stageIndex, itemIndex);
+                    const itemLabel = labelValues[itemIndex] || `항목 ${itemIndex + 1}`;
+                    nodeLabels[id] = `${stages[stageIndex].name} · ${itemLabel}`;
+                    nodeColors[id] = getItemColor(itemIndex);
+                    nodePriority[id] = itemIndex;
+                    return id;
+                };
+
+                const sankeyRows = [];
+                const rowsToDraw = transitionRows.length > 0
+                    ? transitionRows
+                    : buildDefaultSankeyTransitions(stages, labelValues);
+
+                rowsToDraw.forEach(row => {
+                    const stageIndex = Math.min(Math.max(row.step, 0), Math.max(stages.length - 2, 0));
+                    if (stageIndex < 0 || stageIndex + 1 >= stages.length) return;
+                    const previousStage = stages[stageIndex];
+                    const currentStage = stages[stageIndex + 1];
+                    const fromItemIndex = Math.min(Math.max(row.fromItem, 0), Math.max(labelValues.length - 1, 0));
+                    const toItemIndex = Math.min(Math.max(row.toItem, 0), Math.max(labelValues.length - 1, 0));
+                    const flow = Math.max(row.flow, 0);
+                        if (flow <= 0) return;
+                        const from = ensureItemNode(stageIndex, fromItemIndex);
+                        const to = ensureItemNode(stageIndex + 1, toItemIndex);
+                        sankeyRows.push({
+                            from,
+                            to,
+                            flow,
+                            fromColor: nodeColors[from] || hexToRgba(previousStage.color, 0.75),
+                            toColor: nodeColors[to],
+                            fromLabel: nodeLabels[from],
+                            toLabel: nodeLabels[to]
+                        });
+                });
+
+                chartLabels = Object.values(nodeLabels);
+                datasets.push({
+                    label: stages[0].name,
+                    data: sankeyRows,
+                    colorFrom: (context) => context.dataset.data[context.dataIndex].fromColor,
+                    colorTo: (context) => context.dataset.data[context.dataIndex].toColor,
+                    hoverColorFrom: (context) => context.dataset.data[context.dataIndex].fromColor,
+                    hoverColorTo: (context) => context.dataset.data[context.dataIndex].toColor,
+                    colorMode: 'gradient',
+                    alpha: 0.9,
+                    labels: nodeLabels,
+                    priority: nodePriority,
+                    size: 'max'
+                });
+
+            } else if (chartType === 'line' || chartType === 'radar') {
                 chartLabels = labelValues;
                 datasets.push({
                     label: mainDatasetName,
@@ -614,9 +695,11 @@
 
         function updateUIForChartType(chartType) {
             const isLineOrRadar = chartType === 'line' || chartType === 'radar';
+            const usesMainDatasetColor = isLineOrRadar || chartType === 'sankey';
+            const usesDatasetColor = isLineOrRadar || chartType === 'sankey';
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
-            if (isLineOrRadar) mainColorContainer.classList.remove('hidden');
+            if (usesMainDatasetColor) mainColorContainer.classList.remove('hidden');
             else mainColorContainer.classList.add('hidden');
 
             const inputContainer = document.getElementById('data-input-container');
@@ -626,7 +709,7 @@
             document.querySelectorAll('.additional-dataset-block').forEach(block => {
                 const picker = block.querySelector('.dataset-color-container');
                 if (picker) {
-                    if (isLineOrRadar) picker.classList.remove('hidden');
+                    if (usesDatasetColor) picker.classList.remove('hidden');
                     else picker.classList.add('hidden');
                 }
             });
@@ -653,6 +736,12 @@
                                         ? context.dataset.originalData[context.dataIndex]
                                         : 0;
                                     return `${label}${originalVal.toLocaleString()} (${percent}%)`;
+                                }
+
+                                if (chartType === 'sankey') {
+                                    const raw = context.raw || {};
+                                    const flow = typeof raw.flow === 'number' ? raw.flow.toLocaleString() : raw.flow;
+                                    return `${raw.fromLabel || raw.from || ''} -> ${raw.toLabel || raw.to || ''}: ${flow || 0}`;
                                 }
                                 
                                 // For Square chart
@@ -684,7 +773,7 @@
                         // 수치 표시 여부 제어
                         display: function(context) {
                             if (!isDataLabelVisible) return false;
-                            if (chartType === 'square') return false;
+                            if (chartType === 'square' || chartType === 'sankey') return false;
                             
                             // halfDoughnut 예외 처리 로직을 여기서 통합
                             if (chartType === 'halfDoughnut') {
@@ -734,6 +823,10 @@
                     anchor: 'center', align: 'center', color: '#000',
                     font: { weight: 'bold', size: 12 }, textShadowBlur: 0
                 });
+            } else if (chartType === 'sankey') {
+                options.plugins.legend.display = false;
+                options.maintainAspectRatio = false;
+                options.layout = { padding: 18 };
             } else { 
                 Object.assign(options.plugins.datalabels, {
                     anchor: 'end', align: 'end', color: '#333',
@@ -844,9 +937,138 @@
 
             container.appendChild(row);
             syncLineDataInputs();
+            refreshSankeyTransitionRows(true);
         }
 
-        function removeInputRow(button) { button.closest('.data-row').remove(); syncLineDataInputs(); createOrUpdateChart(); }
+        function removeInputRow(button) {
+            button.closest('.data-row').remove();
+            syncLineDataInputs();
+            refreshSankeyTransitionRows(true);
+            createOrUpdateChart();
+        }
+
+        function getSankeyItemLabels() {
+            return Array.from(document.querySelectorAll('#data-input-container input[type="text"]')).map((input, index) => {
+                return input.value.trim() || `항목 ${index + 1}`;
+            });
+        }
+
+        function getSankeyStagesFromUI(mainValues = null, mainName = null, mainColor = null, baseColors = getBaseColors()) {
+            const values = mainValues || Array.from(document.querySelectorAll('#data-input-container input[type="number"]')).map(input => Number(input.value.trim()) || 0);
+            const stages = [{
+                name: mainName || document.getElementById('mainDatasetName').value || '데이터셋 1',
+                color: mainColor || document.getElementById('mainDatasetColor').value,
+                values
+            }];
+
+            document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
+                const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
+                const color = block.querySelector('.dataset-color-picker')?.value || baseColors[(index + 1) % baseColors.length]['1'];
+                const stageValues = Array.from(block.querySelectorAll('input.dataset-value')).map(input => Number(input.value.trim()) || 0);
+                stages.push({ name, color, values: stageValues });
+            });
+
+            return stages;
+        }
+
+        function buildDefaultSankeyTransitions(stages = getSankeyStagesFromUI(), labels = getSankeyItemLabels()) {
+            const rows = [];
+            for (let step = 0; step < stages.length - 1; step++) {
+                labels.forEach((label, itemIndex) => {
+                    const nextValue = stages[step + 1].values[itemIndex];
+                    const currentValue = stages[step].values[itemIndex];
+                    const flow = Math.max(Number(nextValue || currentValue || 0), 0);
+                    if (flow > 0) rows.push({ step, fromItem: itemIndex, toItem: itemIndex, flow });
+                });
+            }
+            return rows;
+        }
+
+        function readSankeyTransitionRows() {
+            return Array.from(document.querySelectorAll('.sankey-transition-row')).map(row => {
+                return {
+                    step: Number(row.querySelector('.sankey-step')?.value || 0),
+                    fromItem: Number(row.querySelector('.sankey-from-item')?.value || 0),
+                    toItem: Number(row.querySelector('.sankey-to-item')?.value || 0),
+                    flow: Number(row.querySelector('.sankey-flow')?.value || 0)
+                };
+            });
+        }
+
+        function addSankeyTransitionRow(rowData = {}, shouldUpdate = true) {
+            const stages = getSankeyStagesFromUI();
+            const labels = getSankeyItemLabels();
+            const container = document.getElementById('sankey-transitions-container');
+            if (!container || stages.length < 2 || labels.length === 0) return;
+
+            const step = Math.min(Math.max(Number(rowData.step || 0), 0), stages.length - 2);
+            const fromItem = Math.min(Math.max(Number(rowData.fromItem || 0), 0), labels.length - 1);
+            const toItem = Math.min(Math.max(Number(rowData.toItem ?? rowData.fromItem ?? 0), 0), labels.length - 1);
+            const flow = rowData.flow ?? '';
+            const row = document.createElement('div');
+            row.className = 'sankey-transition-row grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr_0.8fr_auto] gap-2 items-center bg-white border border-amber-100 rounded-lg p-2';
+            row.innerHTML = `
+                <select class="sankey-step px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    ${stages.slice(0, -1).map((stage, index) => `<option value="${index}" ${index === step ? 'selected' : ''}>${stage.name} → ${stages[index + 1].name}</option>`).join('')}
+                </select>
+                <select class="sankey-from-item px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    ${labels.map((label, index) => `<option value="${index}" ${index === fromItem ? 'selected' : ''}>${label}</option>`).join('')}
+                </select>
+                <select class="sankey-to-item px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    ${labels.map((label, index) => `<option value="${index}" ${index === toItem ? 'selected' : ''}>${label}</option>`).join('')}
+                </select>
+                <input type="number" class="sankey-flow px-2 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-400" value="${flow}" placeholder="값">
+                <button type="button" class="sankey-remove bg-red-500 text-white font-bold h-[38px] w-[40px] rounded-lg hover:bg-red-600 transition flex items-center justify-center">×</button>
+            `;
+
+            row.addEventListener('input', createOrUpdateChart);
+            row.addEventListener('change', createOrUpdateChart);
+            row.querySelector('.sankey-remove').addEventListener('click', () => {
+                row.remove();
+                refreshSankeyTransitionRows(false);
+                createOrUpdateChart();
+            });
+
+            container.appendChild(row);
+            if (shouldUpdate) {
+                createOrUpdateChart();
+            }
+        }
+
+        function refreshSankeyTransitionRows(seedMissing = false) {
+            const chartType = document.getElementById('chartType')?.value;
+            const panel = document.getElementById('sankey-transitions-panel');
+            const container = document.getElementById('sankey-transitions-container');
+            const empty = document.getElementById('sankey-transition-empty');
+            if (!panel || !container || !empty) return;
+
+            const isSankey = chartType === 'sankey';
+            panel.classList.toggle('hidden', !isSankey);
+            if (!isSankey) return;
+
+            const stages = getSankeyStagesFromUI();
+            const labels = getSankeyItemLabels();
+            const existing = readSankeyTransitionRows().filter(row => {
+                return row.step < stages.length - 1 && row.fromItem < labels.length && row.toItem < labels.length;
+            });
+
+            const keyed = new Set(existing.map(row => `${row.step}:${row.fromItem}:${row.toItem}`));
+            if (seedMissing && stages.length > 1) {
+                buildDefaultSankeyTransitions(stages, labels).forEach(row => {
+                    const key = `${row.step}:${row.fromItem}:${row.toItem}`;
+                    if (!keyed.has(key)) {
+                        existing.push(row);
+                        keyed.add(key);
+                    }
+                });
+            }
+
+            container.innerHTML = '';
+            empty.classList.toggle('hidden', stages.length >= 2);
+            if (stages.length < 2) return;
+
+            existing.forEach(row => addSankeyTransitionRow(row, false));
+        }
 
         function addDataset() {
             const container = document.getElementById('additional-datasets-container');
@@ -889,9 +1111,14 @@
             
             const chartType = document.getElementById('chartType').value;
             updateUIForChartType(chartType);
+            refreshSankeyTransitionRows(chartType === 'sankey');
         }
 
-        function removeDataset(button) { button.closest('.additional-dataset-block').remove(); createOrUpdateChart(); }
+        function removeDataset(button) {
+            button.closest('.additional-dataset-block').remove();
+            refreshSankeyTransitionRows(false);
+            createOrUpdateChart();
+        }
 
         function syncLineDataInputs() {
             const labels = Array.from(document.querySelectorAll('#data-input-container input[type="text"]')).map(input => input.value.trim());
@@ -911,6 +1138,7 @@
                     body.appendChild(row);
                 });
             });
+            refreshSankeyTransitionRows(false);
         }
         
         function saveChartAsImage() {
@@ -941,7 +1169,7 @@
 
             document.getElementById('chartType').addEventListener('change', (e) => {
                 const chartType = e.target.value;
-                const isMultiSet = chartType === 'line' || chartType === 'singleStackedBar' || chartType === 'radar'; 
+                const isMultiSet = chartType === 'line' || chartType === 'singleStackedBar' || chartType === 'radar' || chartType === 'sankey'; 
                 
                 document.getElementById('addDatasetBtn').classList.toggle('hidden', !isMultiSet);
                 const container = document.getElementById('additional-datasets-container');
@@ -950,20 +1178,27 @@
                 if (!isMultiSet) container.innerHTML = '';
                 
                 updateUIForChartType(chartType);
+                refreshSankeyTransitionRows(chartType === 'sankey');
                 createOrUpdateChart();
             });
 
-            document.getElementById('mainDatasetName').addEventListener('input', createOrUpdateChart);
+            document.getElementById('mainDatasetName').addEventListener('input', () => {
+                refreshSankeyTransitionRows(false);
+                createOrUpdateChart();
+            });
             document.getElementById('mainDatasetColor').addEventListener('input', createOrUpdateChart); 
             document.getElementById('addFieldBtn').addEventListener('click', () => addInputRow());
             document.getElementById('addDatasetBtn').addEventListener('click', addDataset);
+            document.getElementById('addSankeyTransitionBtn').addEventListener('click', () => addSankeyTransitionRow({}, true));
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
-            document.getElementById('data-input-container').addEventListener('input', () => {
+            document.getElementById('data-input-container').addEventListener('input', (event) => {
                 syncLineDataInputs();
+                if (event.target.type === 'text') refreshSankeyTransitionRows(true);
                 createOrUpdateChart();
                 updateAllTotals();
             });
-            document.getElementById('additional-datasets-container').addEventListener('input', () => {
+            document.getElementById('additional-datasets-container').addEventListener('input', (event) => {
+                if (event.target.classList.contains('dataset-name')) refreshSankeyTransitionRows(false);
                 createOrUpdateChart();
                 updateAllTotals();
             });
