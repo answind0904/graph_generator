@@ -106,7 +106,7 @@
     </div>
 
     <!-- 1. 그래프 생성기 섹션 -->
-    <div id="graph-section" class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div id="graph-section" class="w-full max-w-6xl mx-auto grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-3">
         
         <!-- 왼쪽: 입력 컨트롤 패널 -->
         <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
@@ -181,19 +181,10 @@
                 데이터셋 추가 (비교 데이터)
             </button>
             
-            <!-- 버튼 그룹 수정: 항목 추가 / (수치숨기기 + 저장) 분리 -->
+            <!-- 버튼 그룹 수정: 항목 추가 분리 -->
             <div class="mb-3">
                  <button id="addFieldBtn" class="w-full bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition duration-300 text-sm">
                     항목 추가
-                </button>
-            </div>
-            <div class="flex gap-2 mb-6">
-                 <!-- 데이터 라벨 토글 버튼 (무채색 스타일) -->
-                 <button id="toggleLabelBtn" class="flex-1 bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-400 transition duration-300 text-sm">
-                    수치 숨기기
-                </button>
-                 <button id="saveChartBtn" class="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition duration-300 text-sm">
-                    이미지 저장
                 </button>
             </div>
 
@@ -203,9 +194,26 @@
             </button>
         </div>
 
-        <!-- 오른쪽: 그래프가 그려질 영역 -->
-        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center h-[460px] lg:h-[560px]">
-            <canvas id="myChart" class="w-full h-full"></canvas>
+        <!-- 오른쪽: 그래프 미리보기 및 액션 영역 -->
+        <div class="lg:col-span-2 flex flex-col gap-2">
+            <div class="bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center h-[460px] lg:h-[560px]">
+                <canvas id="myChart" class="w-full h-full"></canvas>
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-end gap-2">
+                <button id="graphOnlyBtn" class="w-full sm:w-auto bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400 transition duration-300 text-sm shadow-md">
+                    그래프만 보기
+                </button>
+                <button id="toggleLabelBtn" class="w-full sm:w-auto bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400 transition duration-300 text-sm shadow-md">
+                    수치 숨기기
+                </button>
+                <button id="saveTransparentChartBtn" class="w-full sm:w-auto bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition duration-300 text-sm shadow-md">
+                    투명 PNG 저장
+                </button>
+                <button id="saveChartBtn" class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-300 text-sm shadow-md">
+                    이미지 저장
+                </button>
+            </div>
         </div>
     </div>
 
@@ -304,6 +312,7 @@
         let myChart = null;
         let dragSrcRow = null;
         let isDataLabelVisible = true; // 라벨 표시 여부 상태 변수
+        let isGraphOnlyMode = false;
         const squareBottomAlignPlugin = {
             id: 'squareBottomAlign',
             afterDraw(chart) {
@@ -772,7 +781,7 @@
                     datalabels: {
                         // 수치 표시 여부 제어
                         display: function(context) {
-                            if (!isDataLabelVisible) return false;
+                            if (!isDataLabelVisible || isGraphOnlyMode) return false;
                             if (chartType === 'square' || chartType === 'sankey') return false;
                             
                             // halfDoughnut 예외 처리 로직을 여기서 통합
@@ -862,7 +871,51 @@
             } else if (['radar', 'polarArea'].includes(chartType)) {
                  options.scales = { r: { display: true } };
             }
+
+            if (isGraphOnlyMode) applyGraphOnlyOptions(options);
             return options;
+        }
+
+        function applyGraphOnlyOptions(options) {
+            const transparent = 'rgba(0, 0, 0, 0)';
+            options.plugins.title.color = transparent;
+            if (options.plugins.legend.display !== false) {
+                options.plugins.legend.display = true;
+                options.plugins.legend.labels = {
+                    ...(options.plugins.legend.labels || {}),
+                    color: transparent,
+                    generateLabels(chart) {
+                        return Chart.defaults.plugins.legend.labels.generateLabels(chart).map((label) => ({
+                            ...label,
+                            fillStyle: transparent,
+                            strokeStyle: transparent,
+                            fontColor: transparent
+                        }));
+                    },
+                    padding: 12
+                };
+            }
+            options.plugins.datalabels.display = false;
+
+            if (!options.scales) return;
+            Object.keys(options.scales).forEach((scaleKey) => {
+                const scale = options.scales[scaleKey];
+                if (scale.display === false) return;
+                scale.display = true;
+                scale.grid = {
+                    ...(scale.grid || {}),
+                    color: transparent,
+                    borderColor: transparent,
+                    tickColor: transparent
+                };
+                scale.border = { ...(scale.border || {}), color: transparent };
+                scale.ticks = { ...(scale.ticks || {}), color: transparent };
+                scale.title = { ...(scale.title || {}), color: transparent };
+                if (scaleKey === 'r') {
+                    scale.angleLines = { ...(scale.angleLines || {}), color: transparent };
+                    scale.pointLabels = { ...(scale.pointLabels || {}), color: transparent };
+                }
+            });
         }
 
         function getColors(count, opacityKey, baseColors, offset = 0) {
@@ -1141,19 +1194,57 @@
             refreshSankeyTransitionRows(false);
         }
         
-        function saveChartAsImage() {
+        function downloadChartImage({ transparent = false, graphOnly = false } = {}) {
             if (!myChart || !myChart.canvas) return;
+            const originalGraphOnlyMode = isGraphOnlyMode;
+            if (graphOnly && !isGraphOnlyMode) {
+                isGraphOnlyMode = true;
+                updateGraphOnlyButtonState();
+                createOrUpdateChart();
+            }
+
             const sourceCanvas = myChart.canvas;
-            const newCanvas = document.createElement('canvas');
-            newCanvas.width = sourceCanvas.width; newCanvas.height = sourceCanvas.height;
-            const newCtx = newCanvas.getContext('2d');
-            newCtx.fillStyle = 'white';
-            newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-            newCtx.drawImage(sourceCanvas, 0, 0);
-            const dataUrl = newCanvas.toDataURL('image/jpeg', 1.0);
             const link = document.createElement('a');
-            link.href = dataUrl; link.download = 'graph-chart.jpeg';
+            if (transparent) {
+                link.href = sourceCanvas.toDataURL('image/png');
+                link.download = graphOnly ? 'graph-only-transparent.png' : 'graph-transparent.png';
+            } else {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = sourceCanvas.width; newCanvas.height = sourceCanvas.height;
+                const newCtx = newCanvas.getContext('2d');
+                newCtx.fillStyle = 'white';
+                newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+                newCtx.drawImage(sourceCanvas, 0, 0);
+                link.href = newCanvas.toDataURL('image/jpeg', 1.0);
+                link.download = 'graph-chart.jpeg';
+            }
             link.click();
+
+            if (graphOnly && originalGraphOnlyMode !== isGraphOnlyMode) {
+                isGraphOnlyMode = originalGraphOnlyMode;
+                updateGraphOnlyButtonState();
+                createOrUpdateChart();
+            }
+        }
+
+        function saveChartAsImage() {
+            downloadChartImage();
+        }
+
+        function saveGraphOnlyTransparentPng() {
+            downloadChartImage({ transparent: true, graphOnly: true });
+        }
+
+        function updateGraphOnlyButtonState() {
+            const button = document.getElementById('graphOnlyBtn');
+            if (!button) return;
+            button.innerText = isGraphOnlyMode ? '전체 보기' : '그래프만 보기';
+            button.classList.remove('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400', 'bg-gray-700', 'text-white', 'hover:bg-gray-800');
+            if (isGraphOnlyMode) {
+                button.classList.add('bg-gray-700', 'text-white', 'hover:bg-gray-800');
+            } else {
+                button.classList.add('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400');
+            }
         }
 
         function setupInitialFields() {
@@ -1191,6 +1282,12 @@
             document.getElementById('addDatasetBtn').addEventListener('click', addDataset);
             document.getElementById('addSankeyTransitionBtn').addEventListener('click', () => addSankeyTransitionRow({}, true));
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
+            document.getElementById('saveTransparentChartBtn').addEventListener('click', saveGraphOnlyTransparentPng);
+            document.getElementById('graphOnlyBtn').addEventListener('click', function() {
+                isGraphOnlyMode = !isGraphOnlyMode;
+                updateGraphOnlyButtonState();
+                createOrUpdateChart();
+            });
             document.getElementById('data-input-container').addEventListener('input', (event) => {
                 syncLineDataInputs();
                 if (event.target.type === 'text') refreshSankeyTransitionRows(true);
