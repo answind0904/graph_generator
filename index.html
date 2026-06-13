@@ -268,6 +268,7 @@
                     <button id="toggleLinePointStyleBtn" type="button" aria-pressed="false" aria-label="포인트 모양을 네모로 변경" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
                         <svg class="line-point-circle-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="white" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg>
                         <svg class="line-point-rect-icon hidden" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="white" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
+                        <svg class="line-point-none-icon hidden" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="m6 6 12 12"/><path d="M18 6 6 18"/></svg>
                     </button>
                     <div id="linePointStyleTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">포인트: 원형</div>
                 </div>
@@ -417,6 +418,9 @@
         let yAxisStartMode = 'zero';
         const EXPORT_WIDTH = 1920;
         const EXPORT_HEIGHT = 1080;
+        const EXPORT_PIXEL_RATIO = 2;
+        const EXPORT_LOGICAL_WIDTH = EXPORT_WIDTH / EXPORT_PIXEL_RATIO;
+        const EXPORT_LOGICAL_HEIGHT = EXPORT_HEIGHT / EXPORT_PIXEL_RATIO;
         const squareBottomAlignPlugin = {
             id: 'squareBottomAlign',
             afterDraw(chart) {
@@ -668,14 +672,18 @@
                     pointHoverBorderColor: mainDatasetColor,
                     borderWidth: 3,
                     pointRadius: chartType === 'line'
-                        ? Math.max(1, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1))
+                        ? (linePointStyle === 'none' ? 0 : Math.max(1, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1)))
                         : 3,
                     pointHoverRadius: chartType === 'line'
-                        ? Math.max(2, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1) + 1)
+                        ? (linePointStyle === 'none' ? 0 : Math.max(2, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1) + 1))
                         : 4,
-                    pointBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
-                    pointHoverBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
-                    pointStyle: chartType === 'line' ? linePointStyle : 'circle',
+                    pointBorderWidth: chartType === 'line'
+                        ? (linePointStyle === 'none' ? 0 : Math.max(0.5, lineStrokeWidth / 2))
+                        : 1,
+                    pointHoverBorderWidth: chartType === 'line'
+                        ? (linePointStyle === 'none' ? 0 : Math.max(0.5, lineStrokeWidth / 2))
+                        : 1,
+                    pointStyle: chartType === 'line' && linePointStyle === 'rect' ? 'rect' : 'circle',
                     segment: chartType === 'line' ? { borderWidth: lineStrokeWidth } : undefined,
                     tension: chartType === 'line' ? 0 : 0.1,
                     fill: chartType === 'radar'
@@ -698,14 +706,18 @@
                         pointHoverBorderColor: dsColor,
                         borderWidth: 3,
                         pointRadius: chartType === 'line'
-                            ? Math.max(1, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1))
+                            ? (linePointStyle === 'none' ? 0 : Math.max(1, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1)))
                             : 3,
                         pointHoverRadius: chartType === 'line'
-                            ? Math.max(2, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1) + 1)
+                            ? (linePointStyle === 'none' ? 0 : Math.max(2, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1) + 1))
                             : 4,
-                        pointBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
-                        pointHoverBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
-                        pointStyle: chartType === 'line' ? linePointStyle : 'circle',
+                        pointBorderWidth: chartType === 'line'
+                            ? (linePointStyle === 'none' ? 0 : Math.max(0.5, lineStrokeWidth / 2))
+                            : 1,
+                        pointHoverBorderWidth: chartType === 'line'
+                            ? (linePointStyle === 'none' ? 0 : Math.max(0.5, lineStrokeWidth / 2))
+                            : 1,
+                        pointStyle: chartType === 'line' && linePointStyle === 'rect' ? 'rect' : 'circle',
                         segment: chartType === 'line' ? { borderWidth: lineStrokeWidth } : undefined,
                         tension: chartType === 'line' ? 0 : 0.1,
                         fill: chartType === 'radar'
@@ -882,18 +894,22 @@
             const tooltip = document.getElementById('linePointStyleTooltip');
             if (!button || !tooltip) return;
 
+            const isCircle = linePointStyle === 'circle';
             const isRect = linePointStyle === 'rect';
-            button.setAttribute('aria-pressed', String(isRect));
-            button.setAttribute('aria-label', isRect ? '포인트 모양을 원형으로 변경' : '포인트 모양을 네모로 변경');
-            button.classList.toggle('bg-blue-600', isRect);
-            button.classList.toggle('text-white', isRect);
-            button.classList.toggle('hover:bg-blue-700', isRect);
-            button.classList.toggle('bg-gray-100', !isRect);
-            button.classList.toggle('text-gray-600', !isRect);
-            button.classList.toggle('hover:bg-gray-200', !isRect);
-            button.querySelector('.line-point-circle-icon').classList.toggle('hidden', isRect);
+            const isNone = linePointStyle === 'none';
+            const nextLabel = isCircle ? '네모' : (isRect ? '없음' : '원형');
+            button.setAttribute('aria-pressed', String(!isCircle));
+            button.setAttribute('aria-label', `포인트 모양을 ${nextLabel}으로 변경`);
+            button.classList.toggle('bg-blue-600', !isCircle);
+            button.classList.toggle('text-white', !isCircle);
+            button.classList.toggle('hover:bg-blue-700', !isCircle);
+            button.classList.toggle('bg-gray-100', isCircle);
+            button.classList.toggle('text-gray-600', isCircle);
+            button.classList.toggle('hover:bg-gray-200', isCircle);
+            button.querySelector('.line-point-circle-icon').classList.toggle('hidden', !isCircle);
             button.querySelector('.line-point-rect-icon').classList.toggle('hidden', !isRect);
-            tooltip.innerText = isRect ? '포인트: 네모' : '포인트: 원형';
+            button.querySelector('.line-point-none-icon').classList.toggle('hidden', !isNone);
+            tooltip.innerText = isCircle ? '포인트: 원형' : (isRect ? '포인트: 네모' : '포인트: 없음');
         }
 
         function getNiceAxisStep(value) {
@@ -938,7 +954,7 @@
             });
         }
 
-        function buildChartOptions(chartType, sum, datasets) {
+        function buildChartOptions(chartType, sum, datasets, renderSize = null) {
             const options = {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -1103,15 +1119,15 @@
                  options.scales = { r: { display: true } };
             }
 
-            applyChartRange(options);
+            applyChartRange(options, renderSize);
             if (isGraphOnlyMode) applyGraphOnlyOptions(options);
             return options;
         }
 
-        function applyChartRange(options) {
+        function applyChartRange(options, renderSize = null) {
             const frame = document.getElementById('chartPreviewFrame');
-            const frameWidth = frame?.clientWidth || 640;
-            const frameHeight = frame?.clientHeight || 360;
+            const frameWidth = renderSize?.width || frame?.clientWidth || 640;
+            const frameHeight = renderSize?.height || frame?.clientHeight || 360;
             const rangePadding = {
                 top: frameHeight * chartRange.y / 100,
                 right: frameWidth * (100 - chartRange.x - chartRange.width) / 100,
@@ -1495,28 +1511,71 @@
             refreshSankeyTransitionRows(false);
         }
         
+        function getFinalChartType(chartType) {
+            if (chartType === 'halfDoughnut') return 'doughnut';
+            if (chartType === 'square') return 'scatter';
+            if (chartType === 'singleStackedBar') return 'bar';
+            return chartType;
+        }
+
+        function createExportChartCanvas({ transparent = false, graphOnly = false } = {}) {
+            const chartType = document.getElementById('chartType').value;
+            const { labels, datasets, totalSum } = parseAllData(chartType);
+            if (labels.length === 0 || datasets.length === 0) return null;
+
+            const originalGraphOnlyMode = isGraphOnlyMode;
+            isGraphOnlyMode = graphOnly;
+
+            try {
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = EXPORT_LOGICAL_WIDTH;
+                exportCanvas.height = EXPORT_LOGICAL_HEIGHT;
+                exportCanvas.style.width = `${EXPORT_LOGICAL_WIDTH}px`;
+                exportCanvas.style.height = `${EXPORT_LOGICAL_HEIGHT}px`;
+
+                const options = buildChartOptions(
+                    chartType,
+                    totalSum,
+                    datasets,
+                    { width: EXPORT_LOGICAL_WIDTH, height: EXPORT_LOGICAL_HEIGHT }
+                );
+                options.responsive = false;
+                options.maintainAspectRatio = false;
+                options.devicePixelRatio = EXPORT_PIXEL_RATIO;
+                options.animation = false;
+
+                const exportBackgroundPlugin = {
+                    id: 'exportBackground',
+                    beforeDraw(chart) {
+                        if (transparent) return;
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'destination-over';
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(0, 0, chart.width, chart.height);
+                        ctx.restore();
+                    }
+                };
+
+                const exportChart = new Chart(exportCanvas.getContext('2d'), {
+                    type: getFinalChartType(chartType),
+                    data: { labels, datasets },
+                    options,
+                    plugins: [squareBottomAlignPlugin, ChartDataLabels, exportBackgroundPlugin]
+                });
+                exportChart.update('none');
+                return { canvas: exportCanvas, chart: exportChart };
+            } finally {
+                isGraphOnlyMode = originalGraphOnlyMode;
+            }
+        }
+
         function downloadChartImage({ transparent = false, graphOnly = false } = {}) {
             if (!myChart || !myChart.canvas) return;
-            const originalGraphOnlyMode = isGraphOnlyMode;
-            if (graphOnly && !isGraphOnlyMode) {
-                isGraphOnlyMode = true;
-                updateGraphOnlyButtonState();
-                createOrUpdateChart();
-            }
+            const exportResult = createExportChartCanvas({ transparent, graphOnly });
+            if (!exportResult) return;
 
-            const sourceCanvas = myChart.canvas;
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = EXPORT_WIDTH;
-            exportCanvas.height = EXPORT_HEIGHT;
-            const exportCtx = exportCanvas.getContext('2d');
-            exportCtx.imageSmoothingEnabled = true;
-            exportCtx.imageSmoothingQuality = 'high';
-
-            if (!transparent) {
-                exportCtx.fillStyle = 'white';
-                exportCtx.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
-            }
-            exportCtx.drawImage(sourceCanvas, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+            const { canvas: exportCanvas, chart: exportChart } = exportResult;
 
             const link = document.createElement('a');
             if (transparent) {
@@ -1527,12 +1586,7 @@
                 link.download = 'graph-chart.jpeg';
             }
             link.click();
-
-            if (graphOnly && originalGraphOnlyMode !== isGraphOnlyMode) {
-                isGraphOnlyMode = originalGraphOnlyMode;
-                updateGraphOnlyButtonState();
-                createOrUpdateChart();
-            }
+            exportChart.destroy();
         }
 
         function saveChartAsImage() {
@@ -1799,7 +1853,9 @@
                 createOrUpdateChart();
             });
             document.getElementById('toggleLinePointStyleBtn').addEventListener('click', () => {
-                linePointStyle = linePointStyle === 'circle' ? 'rect' : 'circle';
+                linePointStyle = linePointStyle === 'circle'
+                    ? 'rect'
+                    : (linePointStyle === 'rect' ? 'none' : 'circle');
                 updateLinePointStyleButton();
                 createOrUpdateChart();
             });
