@@ -103,7 +103,7 @@
 <body class="bg-gray-100 flex flex-col items-center min-h-screen p-4 sm:p-6 lg:p-8">
 
     <!-- 탭 네비게이션 -->
-    <div class="w-full max-w-6xl mx-auto mb-6 flex border-b border-gray-200">
+    <div class="w-full max-w-[1440px] mx-auto mb-6 flex border-b border-gray-200">
         <button id="tab-graph-btn" class="flex-1 py-4 text-center tab-active transition-colors duration-200" onclick="switchTab('graph')">
             📊 그래프 생성기
         </button>
@@ -113,10 +113,10 @@
     </div>
 
     <!-- 1. 그래프 생성기 섹션 -->
-    <div id="graph-section" class="w-full max-w-6xl mx-auto grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-3">
+    <div id="graph-section" class="w-full max-w-[1440px] mx-auto grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-3">
         
         <!-- 왼쪽: 입력 컨트롤 패널 -->
-        <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
+        <div class="self-start lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
             <!-- 그래프 종류 선택 -->
             <div class="mb-5">
                 <label for="chartType" class="block text-sm font-medium text-gray-700 mb-2">그래프 종류</label>
@@ -204,11 +204,85 @@
 
         <!-- 오른쪽: 그래프 미리보기 및 액션 영역 -->
         <div class="lg:col-span-2 flex flex-col gap-2">
-            <div class="bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center h-[460px] lg:h-[560px]">
-                <canvas id="myChart" class="w-full h-full"></canvas>
+            <div class="relative">
+                <div class="w-full overflow-hidden bg-white">
+                    <div id="chartPreviewFrame" class="relative w-full aspect-video outline outline-1 outline-gray-300">
+                        <canvas id="myChart" class="absolute inset-0 w-full h-full"></canvas>
+                        <img id="screenGuideOverlay" src="preview-assets/screen_guide.png" alt="" class="absolute inset-0 z-10 w-full h-full object-fill pointer-events-none select-none transition-opacity duration-100" style="visibility: hidden; opacity: 1;">
+                        <div id="chartRangeEditor" class="absolute inset-0 z-20 hidden pointer-events-none select-none">
+                            <div data-range-mask="top" class="absolute bg-black/25"></div>
+                            <div data-range-mask="right" class="absolute bg-black/25"></div>
+                            <div data-range-mask="bottom" class="absolute bg-black/25"></div>
+                            <div data-range-mask="left" class="absolute bg-black/25"></div>
+                            <div id="chartRangeBox" class="absolute pointer-events-auto touch-none cursor-move border-2 border-blue-500 shadow-[0_0_0_1px_rgba(255,255,255,0.9)]">
+                                <button type="button" data-range-handle="nw" aria-label="왼쪽 위 크기 조절" class="absolute left-0 top-0 h-4 w-4 -translate-x-0 -translate-y-0 cursor-nwse-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="n" aria-label="위쪽 크기 조절" class="absolute left-1/2 top-0 h-3 w-6 -translate-x-1/2 cursor-ns-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="ne" aria-label="오른쪽 위 크기 조절" class="absolute right-0 top-0 h-4 w-4 cursor-nesw-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="e" aria-label="오른쪽 크기 조절" class="absolute right-0 top-1/2 h-6 w-3 -translate-y-1/2 cursor-ew-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="se" aria-label="오른쪽 아래 크기 조절" class="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="s" aria-label="아래쪽 크기 조절" class="absolute bottom-0 left-1/2 h-3 w-6 -translate-x-1/2 cursor-ns-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="sw" aria-label="왼쪽 아래 크기 조절" class="absolute bottom-0 left-0 h-4 w-4 cursor-nesw-resize border-2 border-white bg-blue-600 shadow"></button>
+                                <button type="button" data-range-handle="w" aria-label="왼쪽 크기 조절" class="absolute left-0 top-1/2 h-6 w-3 -translate-y-1/2 cursor-ew-resize border-2 border-white bg-blue-600 shadow"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <aside id="layoutEditorPanel" class="absolute right-2 top-2 z-30 w-10 rounded-lg border border-gray-200 bg-white/95 p-0.5 shadow-lg backdrop-blur-sm">
+                    <button id="toggleLayoutEditorBtn" type="button" aria-expanded="false" title="레이아웃 편집" class="flex h-8 w-full items-center justify-center gap-1 rounded-md bg-gray-800 px-1.5 text-[10px] font-bold text-white transition hover:bg-gray-700">
+                        <svg class="layout-editor-main-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>
+                        <span class="layout-editor-label hidden whitespace-nowrap">편집</span>
+                    </button>
+                    <div id="layoutEditorControls" class="flex max-h-0 flex-col gap-1 overflow-hidden px-0 py-0 opacity-0 pointer-events-none transition-[max-height,opacity,padding] duration-300 ease-out">
+                <div class="group relative w-full">
+                    <button id="toggleScreenGuideBtn" type="button" aria-pressed="false" title="화면 가이드 표시하기" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-200 text-gray-500 hover:bg-gray-300 transition">
+                        <svg class="screen-guide-visible-icon hidden" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="screen-guide-hidden-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 4.2A10.5 10.5 0 0 1 12 4c6.5 0 10 8 10 8a18.3 18.3 0 0 1-3 4.1"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 8 10 8a9.8 9.8 0 0 0 4-.8"/></svg>
+                    </button>
+                    <div class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">가이드</div>
+                </div>
+                <div class="group relative w-full">
+                    <button id="toggleChartRangeEditorBtn" type="button" aria-pressed="false" class="flex h-8 w-full items-center justify-center rounded-md bg-blue-100 text-blue-700 transition hover:bg-blue-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 7V4h3"/><path d="M17 4h3v3"/><path d="M20 17v3h-3"/><path d="M7 20H4v-3"/><rect x="7" y="7" width="10" height="10"/></svg>
+                    </button>
+                    <div class="invisible absolute right-full top-1/2 z-50 -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                        <div class="flex items-center gap-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
+                            <span>영역 편집</span>
+                            <button id="resetChartRangeBtn" type="button" title="그래프 영역 초기화" class="flex h-6 w-6 items-center justify-center rounded bg-gray-700 text-white hover:bg-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="barWidthControl" class="group relative w-full">
+                    <button type="button" aria-label="막대 폭" class="flex h-8 w-full items-end justify-center gap-[2px] rounded-md bg-gray-100 pb-1.5 text-gray-600 transition hover:bg-gray-200">
+                        <span class="block h-3 w-1.5 bg-current"></span><span class="block h-5 w-1.5 bg-current"></span><span class="block h-4 w-1.5 bg-current"></span>
+                    </button>
+                    <div class="invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                        <div class="w-36 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
+                            <label for="barWidthSlider" class="mb-1 block text-center text-[10px] font-bold text-gray-700">막대 폭</label>
+                            <input id="barWidthSlider" type="range" min="20" max="100" step="5" value="70" class="w-full accent-blue-600" aria-label="전체 막대 폭">
+                        </div>
+                    </div>
+                </div>
+                <div id="yAxisStartControl" class="group relative w-full">
+                    <button type="button" aria-label="Y축 스케일" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 4v16h15"/><path d="M5 16h3"/><path d="M5 12h3"/><path d="M5 8h3"/></svg>
+                    </button>
+                    <div class="invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                        <div class="w-36 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
+                            <span class="mb-1 block text-center text-[10px] font-bold text-gray-700">Y축 스케일</span>
+                            <div class="flex overflow-hidden rounded-md border border-gray-300 text-center" role="group" aria-label="Y축 스케일">
+                                <button type="button" data-y-axis-start="zero" aria-pressed="true" class="flex-1 bg-blue-600 px-1 py-1 text-[9px] font-bold text-white transition">0부터</button>
+                                <button type="button" data-y-axis-start="optimized" aria-pressed="false" class="flex-1 bg-white px-1 py-1 text-[9px] font-bold text-gray-600 transition hover:bg-gray-100">자동 최적화</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                </aside>
             </div>
-
-            <div class="flex flex-col sm:flex-row justify-end gap-2">
+            <div class="flex flex-col gap-2">
+                <div class="flex flex-col sm:flex-row justify-end gap-2">
                 <button id="graphOnlyBtn" class="w-full sm:w-auto bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400 transition duration-300 text-sm shadow-md">
                     그래프만 보기
                 </button>
@@ -221,6 +295,7 @@
                 <button id="saveChartBtn" class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-300 text-sm shadow-md">
                     이미지 저장
                 </button>
+                </div>
             </div>
         </div>
     </div>
@@ -322,6 +397,16 @@
         let isDataLabelVisible = true; // 라벨 표시 여부 상태 변수
         let isGraphOnlyMode = false;
         let areItemNamesVisible = true;
+        let isScreenGuideVisible = false;
+        let isLayoutEditorVisible = false;
+        let isChartRangeEditorVisible = false;
+        let chartRange = { x: 0, y: 0, width: 100, height: 100 };
+        let chartRangeDrag = null;
+        let chartRangeFramePending = false;
+        let barWidthPercent = 70;
+        let yAxisStartMode = 'zero';
+        const EXPORT_WIDTH = 1920;
+        const EXPORT_HEIGHT = 1080;
         const squareBottomAlignPlugin = {
             id: 'squareBottomAlign',
             afterDraw(chart) {
@@ -341,7 +426,7 @@
                 }, 0);
                 const widthScale = baseTotalWidth > 0 ? chartArea.width * 0.92 / baseTotalWidth : 1;
                 const heightScale = maxSide > 0 ? chartArea.height * 0.78 / maxSide : 1;
-                const scale = Math.max(1, Math.min(widthScale, heightScale));
+                const scale = Math.max(0.1, Math.min(widthScale, heightScale));
                 const gap = baseGap;
                 const totalSquareWidth = rawData.reduce((sum, item) => {
                     return sum + item.side * scale;
@@ -641,16 +726,15 @@
                         label: seg.label,
                         data: percentData,
                         originalData: seg.values, 
-                        backgroundColor: seg.backgroundColor,
-                        borderColor: seg.borderColor,
-                        borderWidth: 1,
-                        barPercentage: 0.6,
+                        backgroundColor: seg.borderColor,
+                        borderWidth: 0,
+                        barPercentage: barWidthPercent / 100,
                     };
                 });
 
             } else {
                 chartLabels = labelValues;
-                const backgroundColors = rowColors.map(hex => hexToRgba(hex, 0.7));
+                const backgroundColors = rowColors.map(hex => hexToRgba(hex, chartType === 'bar' ? 1 : 0.7));
                 const borderColors = rowColors.map(hex => hexToRgba(hex, 1.0));
 
                 datasets.push({
@@ -658,7 +742,7 @@
                     data: dataValues,
                     backgroundColor: backgroundColors,
                     borderColor: borderColors,
-                    borderWidth: 1.5,
+                    borderWidth: chartType === 'bar' ? 0 : 1.5,
                     tension: 0.2
                 });
 
@@ -713,8 +797,12 @@
 
         function updateUIForChartType(chartType) {
             const isLineOrRadar = chartType === 'line' || chartType === 'radar';
+            const isBarChart = chartType === 'bar' || chartType === 'singleStackedBar';
+            const supportsYAxisStart = chartType === 'bar' || chartType === 'line';
             const usesMainDatasetColor = isLineOrRadar || chartType === 'sankey';
             const usesDatasetColor = isLineOrRadar || chartType === 'sankey';
+            document.getElementById('barWidthControl')?.classList.toggle('hidden', !isBarChart);
+            document.getElementById('yAxisStartControl')?.classList.toggle('hidden', !supportsYAxisStart);
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
             if (usesMainDatasetColor) mainColorContainer.classList.remove('hidden');
@@ -733,11 +821,59 @@
             });
         }
 
+        function getNiceAxisStep(value) {
+            if (!Number.isFinite(value) || value <= 0) return 1;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+            const normalized = value / magnitude;
+            if (normalized <= 1) return magnitude;
+            if (normalized <= 2) return 2 * magnitude;
+            if (normalized <= 5) return 5 * magnitude;
+            return 10 * magnitude;
+        }
+
+        function calculateOptimizedYAxisMin(datasets) {
+            const values = datasets
+                .flatMap(dataset => Array.isArray(dataset.data) ? dataset.data : [])
+                .filter(value => typeof value === 'number' && Number.isFinite(value));
+            if (values.length === 0) return undefined;
+
+            const minimum = Math.min(...values);
+            const maximum = Math.max(...values);
+            if (minimum === 0) return 0;
+
+            const span = maximum - minimum;
+            const referenceRange = span > 0 ? span : Math.max(Math.abs(minimum) * 0.2, 1);
+            const step = getNiceAxisStep(referenceRange / 5);
+            const paddedMinimum = minimum - referenceRange * 0.1;
+            let optimizedMinimum = Math.floor(paddedMinimum / step) * step;
+
+            if (minimum > 0) optimizedMinimum = Math.max(0, optimizedMinimum);
+            return Number(optimizedMinimum.toPrecision(12));
+        }
+
+        function updateYAxisStartButtons() {
+            document.querySelectorAll('[data-y-axis-start]').forEach(button => {
+                const isActive = button.dataset.yAxisStart === yAxisStartMode;
+                button.setAttribute('aria-pressed', String(isActive));
+                button.classList.toggle('bg-blue-600', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-white', !isActive);
+                button.classList.toggle('text-gray-600', !isActive);
+                button.classList.toggle('hover:bg-gray-100', !isActive);
+            });
+        }
+
         function buildChartOptions(chartType, sum, datasets) {
             const options = {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 customChartType: chartType,
+                datasets: {
+                    bar: {
+                        barPercentage: barWidthPercent / 100,
+                        categoryPercentage: 0.9
+                    }
+                },
                 plugins: {
                     legend: { position: 'top', onClick: null },
                     title: { display: true, text: '생성된 그래프', font: { size: 18 } },
@@ -860,11 +996,22 @@
             if (['bar', 'line', 'singleStackedBar'].includes(chartType)) {
                  const isStacked = chartType === 'singleStackedBar';
                  const useTallYAxis = chartType === 'bar' || chartType === 'line';
+                 const useOptimizedYAxis = useTallYAxis && yAxisStartMode === 'optimized';
+                 const optimizedYAxisMin = useOptimizedYAxis
+                    ? calculateOptimizedYAxisMin(datasets)
+                    : undefined;
                  if (useTallYAxis) options.maintainAspectRatio = false;
                  options.scales = { 
                     x: { display: true, stacked: isStacked, beginAtZero: true, max: isStacked ? 100 : undefined, grid: { display: !isStacked } }, 
-                    y: { display: true, stacked: isStacked, beginAtZero: true, grace: useTallYAxis ? '30%' : undefined, grid: { display: !isStacked } } 
-                };
+                    y: {
+                        display: true,
+                        stacked: isStacked,
+                        beginAtZero: !useOptimizedYAxis,
+                        min: optimizedYAxisMin,
+                        grace: useTallYAxis ? '30%' : undefined,
+                        grid: { display: !isStacked }
+                    } 
+                 };
             } else if (chartType === 'square') {
                 options.maintainAspectRatio = false;
                 options.plugins.legend.display = false;
@@ -881,8 +1028,40 @@
                  options.scales = { r: { display: true } };
             }
 
+            applyChartRange(options);
             if (isGraphOnlyMode) applyGraphOnlyOptions(options);
             return options;
+        }
+
+        function applyChartRange(options) {
+            const frame = document.getElementById('chartPreviewFrame');
+            const frameWidth = frame?.clientWidth || 640;
+            const frameHeight = frame?.clientHeight || 360;
+            const rangePadding = {
+                top: frameHeight * chartRange.y / 100,
+                right: frameWidth * (100 - chartRange.x - chartRange.width) / 100,
+                bottom: frameHeight * (100 - chartRange.y - chartRange.height) / 100,
+                left: frameWidth * chartRange.x / 100
+            };
+            const currentPadding = options.layout?.padding || 0;
+            const basePadding = typeof currentPadding === 'number'
+                ? { top: currentPadding, right: currentPadding, bottom: currentPadding, left: currentPadding }
+                : {
+                    top: currentPadding.top || 0,
+                    right: currentPadding.right || 0,
+                    bottom: currentPadding.bottom || 0,
+                    left: currentPadding.left || 0
+                };
+
+            options.layout = {
+                ...(options.layout || {}),
+                padding: {
+                    top: basePadding.top + rangePadding.top,
+                    right: basePadding.right + rangePadding.right,
+                    bottom: basePadding.bottom + rangePadding.bottom,
+                    left: basePadding.left + rangePadding.left
+                }
+            };
         }
 
         function applyGraphOnlyOptions(options) {
@@ -1251,18 +1430,25 @@
             }
 
             const sourceCanvas = myChart.canvas;
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = EXPORT_WIDTH;
+            exportCanvas.height = EXPORT_HEIGHT;
+            const exportCtx = exportCanvas.getContext('2d');
+            exportCtx.imageSmoothingEnabled = true;
+            exportCtx.imageSmoothingQuality = 'high';
+
+            if (!transparent) {
+                exportCtx.fillStyle = 'white';
+                exportCtx.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+            }
+            exportCtx.drawImage(sourceCanvas, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+
             const link = document.createElement('a');
             if (transparent) {
-                link.href = sourceCanvas.toDataURL('image/png');
+                link.href = exportCanvas.toDataURL('image/png');
                 link.download = graphOnly ? 'graph-only-transparent.png' : 'graph-transparent.png';
             } else {
-                const newCanvas = document.createElement('canvas');
-                newCanvas.width = sourceCanvas.width; newCanvas.height = sourceCanvas.height;
-                const newCtx = newCanvas.getContext('2d');
-                newCtx.fillStyle = 'white';
-                newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-                newCtx.drawImage(sourceCanvas, 0, 0);
-                link.href = newCanvas.toDataURL('image/jpeg', 1.0);
+                link.href = exportCanvas.toDataURL('image/jpeg', 1.0);
                 link.download = 'graph-chart.jpeg';
             }
             link.click();
@@ -1294,6 +1480,184 @@
             }
         }
 
+        function updateScreenGuide() {
+            const overlay = document.getElementById('screenGuideOverlay');
+            const button = document.getElementById('toggleScreenGuideBtn');
+            if (!overlay || !button) return;
+
+            overlay.style.visibility = isScreenGuideVisible ? 'visible' : 'hidden';
+            overlay.style.opacity = '1';
+            button.setAttribute('aria-pressed', String(isScreenGuideVisible));
+            button.title = isScreenGuideVisible ? '화면 가이드 숨기기' : '화면 가이드 표시하기';
+            button.classList.toggle('bg-red-100', isScreenGuideVisible);
+            button.classList.toggle('text-red-600', isScreenGuideVisible);
+            button.classList.toggle('hover:bg-red-200', isScreenGuideVisible);
+            button.classList.toggle('bg-gray-200', !isScreenGuideVisible);
+            button.classList.toggle('text-gray-500', !isScreenGuideVisible);
+            button.classList.toggle('hover:bg-gray-300', !isScreenGuideVisible);
+            button.querySelector('.screen-guide-visible-icon').classList.toggle('hidden', !isScreenGuideVisible);
+            button.querySelector('.screen-guide-hidden-icon').classList.toggle('hidden', isScreenGuideVisible);
+        }
+
+        function clampChartRangeValue(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function renderChartRangeEditor() {
+            const editor = document.getElementById('chartRangeEditor');
+            const box = document.getElementById('chartRangeBox');
+            const button = document.getElementById('toggleChartRangeEditorBtn');
+            if (!editor || !box || !button) return;
+
+            editor.classList.toggle('hidden', !isChartRangeEditorVisible);
+            button.setAttribute('aria-pressed', String(isChartRangeEditorVisible));
+            button.classList.toggle('bg-blue-600', isChartRangeEditorVisible);
+            button.classList.toggle('text-white', isChartRangeEditorVisible);
+            button.classList.toggle('hover:bg-blue-700', isChartRangeEditorVisible);
+            button.classList.toggle('bg-blue-100', !isChartRangeEditorVisible);
+            button.classList.toggle('text-blue-700', !isChartRangeEditorVisible);
+            button.classList.toggle('hover:bg-blue-200', !isChartRangeEditorVisible);
+
+            box.style.left = `${chartRange.x}%`;
+            box.style.top = `${chartRange.y}%`;
+            box.style.width = `${chartRange.width}%`;
+            box.style.height = `${chartRange.height}%`;
+
+            const right = 100 - chartRange.x - chartRange.width;
+            const bottom = 100 - chartRange.y - chartRange.height;
+            const masks = {
+                top: { left: 0, top: 0, width: 100, height: chartRange.y },
+                right: { left: chartRange.x + chartRange.width, top: chartRange.y, width: right, height: chartRange.height },
+                bottom: { left: 0, top: chartRange.y + chartRange.height, width: 100, height: bottom },
+                left: { left: 0, top: chartRange.y, width: chartRange.x, height: chartRange.height }
+            };
+
+            Object.entries(masks).forEach(([name, rect]) => {
+                const mask = editor.querySelector(`[data-range-mask="${name}"]`);
+                if (!mask) return;
+                mask.style.left = `${rect.left}%`;
+                mask.style.top = `${rect.top}%`;
+                mask.style.width = `${Math.max(rect.width, 0)}%`;
+                mask.style.height = `${Math.max(rect.height, 0)}%`;
+            });
+        }
+
+        function scheduleChartRangeUpdate() {
+            if (chartRangeFramePending) return;
+            chartRangeFramePending = true;
+            requestAnimationFrame(() => {
+                chartRangeFramePending = false;
+                createOrUpdateChart();
+            });
+        }
+
+        function handleChartRangePointerMove(event) {
+            if (!chartRangeDrag) return;
+            const frame = document.getElementById('chartPreviewFrame');
+            const bounds = frame.getBoundingClientRect();
+            const deltaX = (event.clientX - chartRangeDrag.clientX) / bounds.width * 100;
+            const deltaY = (event.clientY - chartRangeDrag.clientY) / bounds.height * 100;
+            const start = chartRangeDrag.range;
+            const minimumSize = 20;
+            const handle = chartRangeDrag.handle;
+            let next = { ...start };
+
+            if (handle === 'move') {
+                next.x = clampChartRangeValue(start.x + deltaX, 0, 100 - start.width);
+                next.y = clampChartRangeValue(start.y + deltaY, 0, 100 - start.height);
+            } else {
+                if (handle.includes('e')) {
+                    next.width = clampChartRangeValue(start.width + deltaX, minimumSize, 100 - start.x);
+                }
+                if (handle.includes('s')) {
+                    next.height = clampChartRangeValue(start.height + deltaY, minimumSize, 100 - start.y);
+                }
+                if (handle.includes('w')) {
+                    const rightEdge = start.x + start.width;
+                    next.x = clampChartRangeValue(start.x + deltaX, 0, rightEdge - minimumSize);
+                    next.width = rightEdge - next.x;
+                }
+                if (handle.includes('n')) {
+                    const bottomEdge = start.y + start.height;
+                    next.y = clampChartRangeValue(start.y + deltaY, 0, bottomEdge - minimumSize);
+                    next.height = bottomEdge - next.y;
+                }
+            }
+
+            chartRange = next;
+            renderChartRangeEditor();
+            scheduleChartRangeUpdate();
+        }
+
+        function stopChartRangeInteraction() {
+            if (!chartRangeDrag) return;
+            chartRangeDrag = null;
+            window.removeEventListener('pointermove', handleChartRangePointerMove);
+            window.removeEventListener('pointerup', stopChartRangeInteraction);
+            createOrUpdateChart();
+        }
+
+        function startChartRangeInteraction(event) {
+            if (!isChartRangeEditorVisible) return;
+            event.preventDefault();
+            const handle = event.target.closest('[data-range-handle]')?.dataset.rangeHandle || 'move';
+            chartRangeDrag = {
+                handle,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                range: { ...chartRange }
+            };
+            window.addEventListener('pointermove', handleChartRangePointerMove);
+            window.addEventListener('pointerup', stopChartRangeInteraction);
+        }
+
+        function toggleChartRangeEditor() {
+            isChartRangeEditorVisible = !isChartRangeEditorVisible;
+            renderChartRangeEditor();
+        }
+
+        function renderLayoutEditor() {
+            const controls = document.getElementById('layoutEditorControls');
+            const panel = document.getElementById('layoutEditorPanel');
+            const button = document.getElementById('toggleLayoutEditorBtn');
+            const label = button?.querySelector('.layout-editor-label');
+            const mainIcon = button?.querySelector('.layout-editor-main-icon');
+            if (!controls || !panel || !button) return;
+
+            controls.classList.toggle('max-h-0', !isLayoutEditorVisible);
+            controls.classList.toggle('opacity-0', !isLayoutEditorVisible);
+            controls.classList.toggle('py-0', !isLayoutEditorVisible);
+            controls.classList.toggle('pointer-events-none', !isLayoutEditorVisible);
+            controls.classList.toggle('overflow-hidden', !isLayoutEditorVisible);
+            controls.classList.toggle('max-h-[32rem]', isLayoutEditorVisible);
+            controls.classList.toggle('opacity-100', isLayoutEditorVisible);
+            controls.classList.toggle('py-2', isLayoutEditorVisible);
+            controls.classList.toggle('pointer-events-auto', isLayoutEditorVisible);
+            controls.classList.toggle('overflow-visible', isLayoutEditorVisible);
+            button.setAttribute('aria-expanded', String(isLayoutEditorVisible));
+            button.classList.toggle('bg-blue-600', isLayoutEditorVisible);
+            button.classList.toggle('hover:bg-blue-700', isLayoutEditorVisible);
+            button.classList.toggle('bg-gray-800', !isLayoutEditorVisible);
+            button.classList.toggle('hover:bg-gray-700', !isLayoutEditorVisible);
+            label?.classList.toggle('hidden', !isLayoutEditorVisible);
+            mainIcon?.classList.toggle('hidden', isLayoutEditorVisible);
+        }
+
+        function toggleLayoutEditor() {
+            isLayoutEditorVisible = !isLayoutEditorVisible;
+            if (!isLayoutEditorVisible && isChartRangeEditorVisible) {
+                isChartRangeEditorVisible = false;
+                renderChartRangeEditor();
+            }
+            renderLayoutEditor();
+        }
+
+        function resetChartRange() {
+            chartRange = { x: 0, y: 0, width: 100, height: 100 };
+            renderChartRangeEditor();
+            createOrUpdateChart();
+        }
+
         function setupInitialFields() {
             const baseColors = getBaseColors();
             addInputRow('찬성', 30, baseColors[0]['1']);
@@ -1303,6 +1667,11 @@
         
         window.onload = () => {
             setupInitialFields();
+            updateScreenGuide();
+            renderLayoutEditor();
+            renderChartRangeEditor();
+            updateUIForChartType(document.getElementById('chartType').value);
+            updateYAxisStartButtons();
             createOrUpdateChart();
 
             document.getElementById('chartType').addEventListener('change', (e) => {
@@ -1337,6 +1706,25 @@
             document.getElementById('addSankeyTransitionBtn').addEventListener('click', () => addSankeyTransitionRow({}, true));
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
             document.getElementById('saveTransparentChartBtn').addEventListener('click', saveGraphOnlyTransparentPng);
+            document.getElementById('toggleScreenGuideBtn').addEventListener('click', () => {
+                isScreenGuideVisible = !isScreenGuideVisible;
+                updateScreenGuide();
+            });
+            document.getElementById('toggleLayoutEditorBtn').addEventListener('click', toggleLayoutEditor);
+            document.getElementById('toggleChartRangeEditorBtn').addEventListener('click', toggleChartRangeEditor);
+            document.getElementById('resetChartRangeBtn').addEventListener('click', resetChartRange);
+            document.getElementById('chartRangeBox').addEventListener('pointerdown', startChartRangeInteraction);
+            document.getElementById('barWidthSlider').addEventListener('input', (event) => {
+                barWidthPercent = Number(event.target.value);
+                createOrUpdateChart();
+            });
+            document.getElementById('yAxisStartControl').addEventListener('click', (event) => {
+                const button = event.target.closest('[data-y-axis-start]');
+                if (!button) return;
+                yAxisStartMode = button.dataset.yAxisStart;
+                updateYAxisStartButtons();
+                createOrUpdateChart();
+            });
             document.getElementById('graphOnlyBtn').addEventListener('click', function() {
                 isGraphOnlyMode = !isGraphOnlyMode;
                 updateGraphOnlyButtonState();
