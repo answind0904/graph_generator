@@ -259,7 +259,7 @@
                     </button>
                     <div class="invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
                         <div class="w-36 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
-                            <label for="barWidthSlider" class="mb-1 block text-center text-[10px] font-bold text-gray-700">막대 폭</label>
+                            <label id="widthControlLabel" for="barWidthSlider" class="mb-1 block text-center text-[10px] font-bold text-gray-700">막대 폭</label>
                             <input id="barWidthSlider" type="range" min="20" max="100" step="5" value="70" class="w-full accent-blue-600" aria-label="전체 막대 폭">
                         </div>
                     </div>
@@ -404,6 +404,7 @@
         let chartRangeDrag = null;
         let chartRangeFramePending = false;
         let barWidthPercent = 70;
+        let lineStrokeWidth = 3;
         let yAxisStartMode = 'zero';
         const EXPORT_WIDTH = 1920;
         const EXPORT_HEIGHT = 1080;
@@ -656,7 +657,7 @@
                     pointBorderColor: '#fff',
                     pointHoverBackgroundColor: '#fff',
                     pointHoverBorderColor: mainDatasetColor,
-                    borderWidth: 3,
+                    borderWidth: chartType === 'line' ? lineStrokeWidth : 3,
                     tension: chartType === 'line' ? 0 : 0.1,
                     fill: chartType === 'radar' 
                 });
@@ -676,7 +677,7 @@
                         pointBorderColor: '#fff',
                         pointHoverBackgroundColor: '#fff',
                         pointHoverBorderColor: dsColor,
-                        borderWidth: 3,
+                        borderWidth: chartType === 'line' ? lineStrokeWidth : 3,
                         tension: chartType === 'line' ? 0 : 0.1,
                         fill: chartType === 'radar'
                     });
@@ -798,11 +799,13 @@
         function updateUIForChartType(chartType) {
             const isLineOrRadar = chartType === 'line' || chartType === 'radar';
             const isBarChart = chartType === 'bar' || chartType === 'singleStackedBar';
+            const supportsWidthControl = isBarChart || chartType === 'line';
             const supportsYAxisStart = chartType === 'bar' || chartType === 'line';
             const usesMainDatasetColor = isLineOrRadar || chartType === 'sankey';
             const usesDatasetColor = isLineOrRadar || chartType === 'sankey';
-            document.getElementById('barWidthControl')?.classList.toggle('hidden', !isBarChart);
+            document.getElementById('barWidthControl')?.classList.toggle('hidden', !supportsWidthControl);
             document.getElementById('yAxisStartControl')?.classList.toggle('hidden', !supportsYAxisStart);
+            updateWidthControl(chartType);
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
             if (usesMainDatasetColor) mainColorContainer.classList.remove('hidden');
@@ -819,6 +822,28 @@
                     else picker.classList.add('hidden');
                 }
             });
+        }
+
+        function updateWidthControl(chartType) {
+            const slider = document.getElementById('barWidthSlider');
+            const label = document.getElementById('widthControlLabel');
+            if (!slider || !label) return;
+
+            if (chartType === 'line') {
+                label.innerText = '선 굵기';
+                slider.min = '1';
+                slider.max = '10';
+                slider.step = '0.5';
+                slider.value = String(lineStrokeWidth);
+                slider.setAttribute('aria-label', '전체 선 굵기');
+            } else {
+                label.innerText = '막대 폭';
+                slider.min = '20';
+                slider.max = '100';
+                slider.step = '5';
+                slider.value = String(barWidthPercent);
+                slider.setAttribute('aria-label', '전체 막대 폭');
+            }
         }
 
         function getNiceAxisStep(value) {
@@ -1715,7 +1740,12 @@
             document.getElementById('resetChartRangeBtn').addEventListener('click', resetChartRange);
             document.getElementById('chartRangeBox').addEventListener('pointerdown', startChartRangeInteraction);
             document.getElementById('barWidthSlider').addEventListener('input', (event) => {
-                barWidthPercent = Number(event.target.value);
+                const chartType = document.getElementById('chartType').value;
+                if (chartType === 'line') {
+                    lineStrokeWidth = Number(event.target.value);
+                } else {
+                    barWidthPercent = Number(event.target.value);
+                }
                 createOrUpdateChart();
             });
             document.getElementById('yAxisStartControl').addEventListener('click', (event) => {
