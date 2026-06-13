@@ -264,6 +264,13 @@
                         </div>
                     </div>
                 </div>
+                <div id="linePointStyleControl" class="group relative hidden w-full">
+                    <button id="toggleLinePointStyleBtn" type="button" aria-pressed="false" aria-label="포인트 모양을 네모로 변경" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
+                        <svg class="line-point-circle-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="white" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg>
+                        <svg class="line-point-rect-icon hidden" xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="white" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
+                    </button>
+                    <div id="linePointStyleTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">포인트: 원형</div>
+                </div>
                 <div id="yAxisStartControl" class="group relative w-full">
                     <button type="button" aria-label="Y축 스케일" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
                         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 4v16h15"/><path d="M5 16h3"/><path d="M5 12h3"/><path d="M5 8h3"/></svg>
@@ -400,11 +407,13 @@
         let isScreenGuideVisible = false;
         let isLayoutEditorVisible = false;
         let isChartRangeEditorVisible = false;
-        let chartRange = { x: 0, y: 0, width: 100, height: 100 };
+        const DEFAULT_CHART_RANGE = { x: 8, y: 10, width: 84, height: 81 };
+        let chartRange = { ...DEFAULT_CHART_RANGE };
         let chartRangeDrag = null;
         let chartRangeFramePending = false;
         let barWidthPercent = 70;
-        let lineStrokeWidth = 3;
+        let lineStrokeWidth = 10;
+        let linePointStyle = 'circle';
         let yAxisStartMode = 'zero';
         const EXPORT_WIDTH = 1920;
         const EXPORT_HEIGHT = 1080;
@@ -653,13 +662,23 @@
                     data: dataValues,
                     borderColor: mainDatasetColor,
                     backgroundColor: hexToRgba(mainDatasetColor, chartType === 'radar' ? 0.2 : 0.1),
-                    pointBackgroundColor: mainDatasetColor,
-                    pointBorderColor: '#fff',
+                    pointBackgroundColor: chartType === 'line' ? '#fff' : mainDatasetColor,
+                    pointBorderColor: chartType === 'line' ? mainDatasetColor : '#fff',
                     pointHoverBackgroundColor: '#fff',
                     pointHoverBorderColor: mainDatasetColor,
-                    borderWidth: chartType === 'line' ? lineStrokeWidth : 3,
+                    borderWidth: 3,
+                    pointRadius: chartType === 'line'
+                        ? Math.max(1, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1))
+                        : 3,
+                    pointHoverRadius: chartType === 'line'
+                        ? Math.max(2, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1) + 1)
+                        : 4,
+                    pointBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
+                    pointHoverBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
+                    pointStyle: chartType === 'line' ? linePointStyle : 'circle',
+                    segment: chartType === 'line' ? { borderWidth: lineStrokeWidth } : undefined,
                     tension: chartType === 'line' ? 0 : 0.1,
-                    fill: chartType === 'radar' 
+                    fill: chartType === 'radar'
                 });
 
                 document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
@@ -673,11 +692,21 @@
                         data: arr,
                         borderColor: dsColor,
                         backgroundColor: hexToRgba(dsColor, chartType === 'radar' ? 0.2 : 0.1),
-                        pointBackgroundColor: dsColor,
-                        pointBorderColor: '#fff',
+                        pointBackgroundColor: chartType === 'line' ? '#fff' : dsColor,
+                        pointBorderColor: chartType === 'line' ? dsColor : '#fff',
                         pointHoverBackgroundColor: '#fff',
                         pointHoverBorderColor: dsColor,
-                        borderWidth: chartType === 'line' ? lineStrokeWidth : 3,
+                        borderWidth: 3,
+                        pointRadius: chartType === 'line'
+                            ? Math.max(1, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1))
+                            : 3,
+                        pointHoverRadius: chartType === 'line'
+                            ? Math.max(2, lineStrokeWidth * (linePointStyle === 'circle' ? 2 / 3 : 1) + 1)
+                            : 4,
+                        pointBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
+                        pointHoverBorderWidth: chartType === 'line' ? Math.max(0.5, lineStrokeWidth / 2) : 1,
+                        pointStyle: chartType === 'line' ? linePointStyle : 'circle',
+                        segment: chartType === 'line' ? { borderWidth: lineStrokeWidth } : undefined,
                         tension: chartType === 'line' ? 0 : 0.1,
                         fill: chartType === 'radar'
                     });
@@ -804,8 +833,10 @@
             const usesMainDatasetColor = isLineOrRadar || chartType === 'sankey';
             const usesDatasetColor = isLineOrRadar || chartType === 'sankey';
             document.getElementById('barWidthControl')?.classList.toggle('hidden', !supportsWidthControl);
+            document.getElementById('linePointStyleControl')?.classList.toggle('hidden', chartType !== 'line');
             document.getElementById('yAxisStartControl')?.classList.toggle('hidden', !supportsYAxisStart);
             updateWidthControl(chartType);
+            updateLinePointStyleButton();
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
             if (usesMainDatasetColor) mainColorContainer.classList.remove('hidden');
@@ -844,6 +875,25 @@
                 slider.value = String(barWidthPercent);
                 slider.setAttribute('aria-label', '전체 막대 폭');
             }
+        }
+
+        function updateLinePointStyleButton() {
+            const button = document.getElementById('toggleLinePointStyleBtn');
+            const tooltip = document.getElementById('linePointStyleTooltip');
+            if (!button || !tooltip) return;
+
+            const isRect = linePointStyle === 'rect';
+            button.setAttribute('aria-pressed', String(isRect));
+            button.setAttribute('aria-label', isRect ? '포인트 모양을 원형으로 변경' : '포인트 모양을 네모로 변경');
+            button.classList.toggle('bg-blue-600', isRect);
+            button.classList.toggle('text-white', isRect);
+            button.classList.toggle('hover:bg-blue-700', isRect);
+            button.classList.toggle('bg-gray-100', !isRect);
+            button.classList.toggle('text-gray-600', !isRect);
+            button.classList.toggle('hover:bg-gray-200', !isRect);
+            button.querySelector('.line-point-circle-icon').classList.toggle('hidden', isRect);
+            button.querySelector('.line-point-rect-icon').classList.toggle('hidden', !isRect);
+            tooltip.innerText = isRect ? '포인트: 네모' : '포인트: 원형';
         }
 
         function getNiceAxisStep(value) {
@@ -1678,7 +1728,7 @@
         }
 
         function resetChartRange() {
-            chartRange = { x: 0, y: 0, width: 100, height: 100 };
+            chartRange = { ...DEFAULT_CHART_RANGE };
             renderChartRangeEditor();
             createOrUpdateChart();
         }
@@ -1746,6 +1796,11 @@
                 } else {
                     barWidthPercent = Number(event.target.value);
                 }
+                createOrUpdateChart();
+            });
+            document.getElementById('toggleLinePointStyleBtn').addEventListener('click', () => {
+                linePointStyle = linePointStyle === 'circle' ? 'rect' : 'circle';
+                updateLinePointStyleButton();
                 createOrUpdateChart();
             });
             document.getElementById('yAxisStartControl').addEventListener('click', (event) => {
