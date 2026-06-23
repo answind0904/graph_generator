@@ -183,8 +183,13 @@
             </div>
 
             <!-- 동적 데이터 입력 폼 -->
-            <div class="flex justify-end mb-2">
-                <div class="flex items-center gap-2">
+            <div class="mb-2 flex items-center gap-1.5 px-1">
+                <div class="w-6 flex-shrink-0"></div>
+                <button id="bulkRowColorBtn" type="button" title="전체 항목 색상 변경" class="relative flex h-[30px] w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-300">
+                        <span id="bulkRowColorIndicator" class="h-4 w-4 rounded-full bg-blue-500 shadow-sm ring-1 ring-white"></span>
+                        <input type="color" id="bulkRowColorInput" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value="#3B82F6" aria-label="전체 항목 색상 변경">
+                    </button>
+                <div class="ml-auto flex items-center gap-2">
                     <button id="toggleItemNamesBtn" type="button" aria-pressed="false" title="항목명 숨기기" class="flex items-center gap-1.5 bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-md hover:bg-gray-300 transition duration-300 text-xs">
                         <span>항목명</span>
                         <svg class="item-name-visible-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -619,6 +624,18 @@
 
         function getRowColorInput(index) {
             return document.querySelectorAll('#data-input-container .row-color-wrapper input[type="color"]')[index] || null;
+        }
+
+        function applyBulkRowColor(color) {
+            document.querySelectorAll('#data-input-container .row-color-wrapper input[type="color"]').forEach(input => {
+                input.value = color;
+                input.dataset.noColor = 'false';
+                updateColorInputVisualState(input);
+            });
+
+            const indicator = document.getElementById('bulkRowColorIndicator');
+            if (indicator) indicator.style.backgroundColor = color;
+            createOrUpdateChart();
         }
 
         function getDatasetColorInput(datasetIndex) {
@@ -2267,6 +2284,9 @@
             });
             document.getElementById('addFieldBtn').addEventListener('click', () => addInputRow());
             document.getElementById('addDatasetBtn').addEventListener('click', addDataset);
+            document.getElementById('bulkRowColorInput').addEventListener('input', (event) => {
+                applyBulkRowColor(event.target.value);
+            });
             document.getElementById('addSankeyTransitionBtn').addEventListener('click', () => addSankeyTransitionRow({}, true));
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
             document.getElementById('saveTransparentChartBtn').addEventListener('click', saveGraphOnlyTransparentPng);
