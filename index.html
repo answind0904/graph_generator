@@ -848,6 +848,7 @@
                         originalData: seg.values, 
                         backgroundColor: seg.backgroundColor,
                         borderWidth: 0,
+                        inflateAmount: 1,
                         barPercentage: barWidthPercent / 100,
                     };
                 });
@@ -856,13 +857,18 @@
                 chartLabels = labelValues;
                 const backgroundColors = rowColors.map(hex => hexToRgba(hex, fillOpacity));
                 const borderColors = rowColors.map(hex => hexToRgba(hex, 1.0));
+                const shouldSealTouchingSegments = ['doughnut', 'halfDoughnut', 'polarArea'].includes(chartType);
 
                 datasets.push({
                     label: mainDatasetName,
                     data: dataValues,
                     backgroundColor: backgroundColors,
-                    borderColor: borderColors,
-                    borderWidth: 0,
+                    borderColor: shouldSealTouchingSegments ? backgroundColors : borderColors,
+                    hoverBorderColor: shouldSealTouchingSegments ? backgroundColors : borderColors,
+                    borderWidth: shouldSealTouchingSegments ? 2 : 0,
+                    hoverBorderWidth: shouldSealTouchingSegments ? 2 : 0,
+                    borderAlign: shouldSealTouchingSegments ? 'inner' : 'center',
+                    spacing: 0,
                     tension: 0.2
                 });
 
