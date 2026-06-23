@@ -98,6 +98,27 @@
         .color-indicator:hover {
             transform: scale(1.1);
         }
+        .color-indicator.no-color {
+            position: relative;
+            background:
+                linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+                linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+                linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-color: #fff;
+            background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+            background-size: 12px 12px;
+        }
+        .color-indicator.no-color::after {
+            content: "";
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            top: 50%;
+            border-top: 2px solid #EF4444;
+            transform: rotate(-45deg);
+            transform-origin: center;
+        }
         /* 선/레이더 차트일 때 행 컬러 숨김 처리를 위한 클래스 */
         .hide-row-color .row-color-wrapper {
             display: none !important;
@@ -236,6 +257,14 @@
                                 <button type="button" data-range-handle="sw" aria-label="왼쪽 아래 크기 조절" class="absolute bottom-0 left-0 h-4 w-4 cursor-nesw-resize border-2 border-white bg-blue-600 shadow"></button>
                                 <button type="button" data-range-handle="w" aria-label="왼쪽 크기 조절" class="absolute left-0 top-1/2 h-6 w-3 -translate-y-1/2 cursor-ew-resize border-2 border-white bg-blue-600 shadow"></button>
                             </div>
+                        </div>
+                        <div id="chartDataContextMenu" class="absolute z-40 hidden rounded-lg bg-white p-1 shadow-xl ring-1 ring-gray-200">
+                            <button id="chartNoColorBtn" type="button" class="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-bold text-gray-700 hover:bg-gray-100">
+                                <span class="relative inline-block h-3.5 w-3.5 rounded-sm border border-gray-300 bg-white">
+                                    <span class="absolute left-0 right-0 top-1/2 block border-t-2 border-red-500 -rotate-45"></span>
+                                </span>
+                                색 없음
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -557,6 +586,8 @@
         }
 
         function hexToRgba(hex, alpha) {
+            if (!hex || hex === 'transparent') return 'rgba(0, 0, 0, 0)';
+            if (/^rgba?\(/i.test(hex)) return hex;
             let r = 0, g = 0, b = 0;
             if (hex.length === 4) {
                 r = parseInt(hex[1] + hex[1], 16);
@@ -570,6 +601,73 @@
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
+        function getColorInputValue(input, fallback = 'transparent') {
+            if (!input) return fallback;
+            return input.dataset.noColor === 'true' ? 'transparent' : input.value;
+        }
+
+        function updateColorInputVisualState(input) {
+            if (!input) return;
+            const indicator = input.closest('.row-color-wrapper')?.querySelector('.color-indicator');
+            const hasNoColor = input.dataset.noColor === 'true';
+            if (indicator) {
+                indicator.classList.toggle('no-color', hasNoColor);
+                indicator.style.backgroundColor = hasNoColor ? '' : input.value;
+                indicator.title = hasNoColor ? '색상 없음' : input.value;
+            }
+        }
+
+        function getRowColorInput(index) {
+            return document.querySelectorAll('#data-input-container .row-color-wrapper input[type="color"]')[index] || null;
+        }
+
+        function getDatasetColorInput(datasetIndex) {
+            if (datasetIndex === 0) return document.getElementById('mainDatasetColor');
+            return document.querySelectorAll('.additional-dataset-block .dataset-color-picker')[datasetIndex - 1] || null;
+        }
+
+        function getColorInputForChartElement(element) {
+            if (!element) return null;
+            const chartType = document.getElementById('chartType').value;
+            if (chartType === 'singleStackedBar') return getRowColorInput(element.datasetIndex);
+            if (chartType === 'line' || chartType === 'radar') return getDatasetColorInput(element.datasetIndex);
+            if (chartType === 'sankey') return null;
+            return getRowColorInput(element.index);
+        }
+
+        function hideChartDataContextMenu() {
+            const menu = document.getElementById('chartDataContextMenu');
+            if (!menu) return;
+            menu.classList.add('hidden');
+            menu.activeColorInput = null;
+        }
+
+        function showChartDataContextMenu(event, colorInput) {
+            const menu = document.getElementById('chartDataContextMenu');
+            const frame = document.getElementById('chartPreviewFrame');
+            if (!menu || !frame || !colorInput) return;
+            const frameRect = frame.getBoundingClientRect();
+            menu.activeColorInput = colorInput;
+            menu.classList.remove('hidden');
+            const menuWidth = menu.offsetWidth || 92;
+            const menuHeight = menu.offsetHeight || 34;
+            const left = Math.min(Math.max(event.clientX - frameRect.left + 8, 8), frameRect.width - menuWidth - 8);
+            const top = Math.min(Math.max(event.clientY - frameRect.top + 8, 8), frameRect.height - menuHeight - 8);
+            menu.style.left = `${left}px`;
+            menu.style.top = `${top}px`;
+        }
+
+        function handleChartPreviewClick(event) {
+            if (!myChart || event.target !== myChart.canvas) return;
+            const elements = myChart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+            const colorInput = getColorInputForChartElement(elements[0]);
+            if (!colorInput) {
+                hideChartDataContextMenu();
+                return;
+            }
+            showChartDataContextMenu(event, colorInput);
+        }
+
         function getBaseLegendLabels(chart) {
             const chartTypeGenerator = Chart.overrides[chart.config.type]?.plugins?.legend?.labels?.generateLabels;
             const generator = chartTypeGenerator || Chart.defaults.plugins.legend.labels.generateLabels;
@@ -580,6 +678,8 @@
             if (Array.isArray(color)) return color.map(makeColorOpaque);
             if (typeof color !== 'string') return color;
             if (/^rgba\(/i.test(color)) {
+                const match = color.match(/rgba\(([^,]+),([^,]+),([^,]+),([^)]+)\)/i);
+                if (match && Number(match[4]) <= 0) return 'rgba(0,0,0,0)';
                 return color.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/i, 'rgba($1,$2,$3,1)');
             }
             if (/^hsla\(/i.test(color)) {
@@ -628,6 +728,7 @@
         }
 
         function createOrUpdateChart() {
+            hideChartDataContextMenu();
             const chartType = document.getElementById('chartType').value;
             const { labels, datasets, totalSum } = parseAllData(chartType);
 
@@ -663,15 +764,15 @@
             const colorInputs = document.querySelectorAll('#data-input-container input[type="color"]');
             
             const mainDatasetName = document.getElementById('mainDatasetName').value || '데이터셋 1';
-            const mainDatasetColor = document.getElementById('mainDatasetColor').value;
+            const mainDatasetColor = getColorInputValue(document.getElementById('mainDatasetColor'), '#3B82F6');
+            const baseColors = getBaseColors();
 
             const labelValues = Array.from(labelInputs).map(input => input.value.trim());
             const dataValues = Array.from(dataInputs).map(input => Number(input.value.trim()) || 0);
-            const rowColors = Array.from(colorInputs).map(input => input.value);
+            const rowColors = Array.from(colorInputs).map((input, index) => getColorInputValue(input, baseColors[index % baseColors.length]['1']));
             
             let totalSum = dataValues.reduce((a, b) => a + b, 0);
             
-            const baseColors = getBaseColors();
             const fillOpacity = fillOpacityPercent / 100;
             let datasets = [];
             let chartLabels = [];
@@ -769,7 +870,7 @@
 
                 document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
                     const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
-                    const dsColor = block.querySelector('.dataset-color-picker')?.value || baseColors[(index+1)%baseColors.length]['1'];
+                    const dsColor = getColorInputValue(block.querySelector('.dataset-color-picker'), baseColors[(index+1)%baseColors.length]['1']);
                     const inputs = block.querySelectorAll('input.dataset-value'); 
                     const arr = Array.from(inputs).map(input => Number(input.value.trim()) || 0);
                     
@@ -1358,9 +1459,12 @@
             row.addEventListener('dragstart', handleDragStart); row.addEventListener('dragover', handleDragOver); row.addEventListener('drop', handleDrop); row.addEventListener('dragend', handleDragEnd);
 
             colorInput.addEventListener('input', (e) => {
+                e.target.dataset.noColor = 'false';
                 colorIndicator.style.backgroundColor = e.target.value;
+                updateColorInputVisualState(e.target);
                 createOrUpdateChart();
             });
+            updateColorInputVisualState(colorInput);
             row.querySelector('.item-value-input').addEventListener('keydown', handleQuickValueTab);
 
             container.appendChild(row);
@@ -1428,7 +1532,7 @@
 
             document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
                 const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
-                const color = block.querySelector('.dataset-color-picker')?.value || baseColors[(index + 1) % baseColors.length]['1'];
+                const color = getColorInputValue(block.querySelector('.dataset-color-picker'), baseColors[(index + 1) % baseColors.length]['1']);
                 const stageValues = Array.from(block.querySelectorAll('input.dataset-value')).map(input => Number(input.value.trim()) || 0);
                 stages.push({ name, color, values: stageValues });
             });
@@ -1569,7 +1673,11 @@
             container.appendChild(block);
             
             const colorPicker = block.querySelector('.dataset-color-picker');
-            if(colorPicker) colorPicker.addEventListener('input', createOrUpdateChart);
+            if(colorPicker) colorPicker.addEventListener('input', (event) => {
+                event.target.dataset.noColor = 'false';
+                updateColorInputVisualState(event.target);
+                createOrUpdateChart();
+            });
 
             syncLineDataInputs();
             updateAllTotals();
@@ -2145,7 +2253,11 @@
                 refreshSankeyTransitionRows(false);
                 createOrUpdateChart();
             });
-            document.getElementById('mainDatasetColor').addEventListener('input', createOrUpdateChart); 
+            document.getElementById('mainDatasetColor').addEventListener('input', (event) => {
+                event.target.dataset.noColor = 'false';
+                updateColorInputVisualState(event.target);
+                createOrUpdateChart();
+            }); 
             document.getElementById('toggleItemNamesBtn').addEventListener('click', () => {
                 areItemNamesVisible = !areItemNamesVisible;
                 updateItemNameVisibility();
@@ -2176,6 +2288,17 @@
             document.getElementById('chartPreviewFrame').addEventListener('dragover', handleLocalImageDragOver);
             document.getElementById('chartPreviewFrame').addEventListener('dragleave', handleLocalImageDragLeave);
             document.getElementById('chartPreviewFrame').addEventListener('drop', handleLocalImageDrop);
+            document.getElementById('chartPreviewFrame').addEventListener('click', handleChartPreviewClick);
+            document.getElementById('chartNoColorBtn').addEventListener('click', (event) => {
+                event.stopPropagation();
+                const menu = document.getElementById('chartDataContextMenu');
+                const colorInput = menu?.activeColorInput;
+                if (!colorInput) return;
+                colorInput.dataset.noColor = 'true';
+                updateColorInputVisualState(colorInput);
+                hideChartDataContextMenu();
+                createOrUpdateChart();
+            });
             document.getElementById('toggleLayoutEditorBtn').addEventListener('click', toggleLayoutEditor);
             document.getElementById('toggleChartRangeEditorBtn').addEventListener('click', toggleChartRangeEditor);
             document.getElementById('resetChartRangeBtn').addEventListener('click', resetChartRange);
