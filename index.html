@@ -293,7 +293,7 @@
                     <input id="localImageInput" type="file" accept="image/*,.psd" class="hidden">
                     <div class="invisible absolute right-full top-1/2 z-50 -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
                         <div class="flex items-center gap-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
-                            <span id="localImageTooltipLabel">로컬 이미지</span>
+                            <span id="localImageTooltipLabel">백이미지</span>
                             <button id="clearLocalImageBtn" type="button" title="로컬 이미지 제거" class="hidden h-6 w-6 items-center justify-center rounded bg-gray-700 text-white hover:bg-gray-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                             </button>
@@ -312,6 +312,12 @@
                             </button>
                         </div>
                     </div>
+                </div>
+                <div id="barOrientationControl" class="group relative hidden w-full">
+                    <button id="toggleBarOrientationBtn" type="button" aria-pressed="false" aria-label="가로 막대로 전환" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                    </button>
+                    <div id="barOrientationTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">가로 막대로 전환</div>
                 </div>
                 <div id="barWidthControl" class="group relative w-full">
                     <button type="button" aria-label="막대 폭" class="flex h-8 w-full items-end justify-center gap-[2px] rounded-md bg-gray-100 pb-1.5 text-gray-600 transition hover:bg-gray-200">
@@ -367,7 +373,11 @@
                 </aside>
             </div>
             <div class="flex flex-col gap-2">
-                <div class="flex flex-col sm:flex-row justify-end gap-2">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button id="copyShareLinkBtn" type="button" title="현재 데이터 공유 링크 복사" aria-label="현재 데이터 공유 링크 복사" class="h-[44px] w-[44px] flex-shrink-0 self-start rounded-lg bg-blue-600 text-white shadow-md transition duration-300 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    <svg class="mx-auto" xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="m8 12 8 0"/></svg>
+                </button>
+                <div class="flex flex-col gap-2 sm:ml-auto sm:flex-row">
                 <button id="graphOnlyBtn" class="w-full sm:w-auto bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400 transition duration-300 text-sm shadow-md">
                     그래프만 보기
                 </button>
@@ -380,6 +390,7 @@
                 <button id="saveChartBtn" class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-300 text-sm shadow-md">
                     이미지 저장
                 </button>
+                </div>
                 </div>
             </div>
         </div>
@@ -495,6 +506,7 @@
         let chartRangeDrag = null;
         let chartRangeFramePending = false;
         let barWidthPercent = 70;
+        let barOrientation = 'vertical';
         let lineStrokeWidth = 10;
         let linePointStyle = 'circle';
         let fillOpacityPercent = 100;
@@ -1043,13 +1055,15 @@
             const isLineOrRadar = chartType === 'line' || chartType === 'radar';
             const isBarChart = chartType === 'bar' || chartType === 'singleStackedBar';
             const supportsWidthControl = isBarChart || chartType === 'line';
-            const supportsYAxisStart = chartType === 'bar' || chartType === 'line';
+            const supportsYAxisStart = chartType === 'line' || (chartType === 'bar' && barOrientation !== 'horizontal');
             const usesMainDatasetColor = isLineOrRadar || chartType === 'sankey';
             const usesDatasetColor = isLineOrRadar || chartType === 'sankey';
+            document.getElementById('barOrientationControl')?.classList.toggle('hidden', !isBarChart);
             document.getElementById('barWidthControl')?.classList.toggle('hidden', !supportsWidthControl);
             document.getElementById('linePointStyleControl')?.classList.toggle('hidden', chartType !== 'line');
             document.getElementById('yAxisStartControl')?.classList.toggle('hidden', !supportsYAxisStart);
             updateWidthControl(chartType);
+            updateBarOrientationButton();
             updateLinePointStyleButton();
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
@@ -1067,6 +1081,25 @@
                     else picker.classList.add('hidden');
                 }
             });
+        }
+
+        function updateBarOrientationButton() {
+            const button = document.getElementById('toggleBarOrientationBtn');
+            const tooltip = document.getElementById('barOrientationTooltip');
+            if (!button || !tooltip) return;
+
+            const isHorizontal = barOrientation === 'horizontal';
+            const nextLabel = isHorizontal ? '세로 막대로 전환' : '가로 막대로 전환';
+            button.setAttribute('aria-pressed', String(isHorizontal));
+            button.setAttribute('aria-label', nextLabel);
+            button.setAttribute('title', nextLabel);
+            tooltip.innerText = nextLabel;
+            button.classList.toggle('bg-blue-600', isHorizontal);
+            button.classList.toggle('text-white', isHorizontal);
+            button.classList.toggle('hover:bg-blue-700', isHorizontal);
+            button.classList.toggle('bg-gray-100', !isHorizontal);
+            button.classList.toggle('text-gray-600', !isHorizontal);
+            button.classList.toggle('hover:bg-gray-200', !isHorizontal);
         }
 
         function updateWidthControl(chartType) {
@@ -1268,7 +1301,9 @@
                 animation: false,
             };
 
-            if (chartType === 'singleStackedBar') options.indexAxis = 'y';
+            const isBarChart = chartType === 'bar' || chartType === 'singleStackedBar';
+            const isHorizontalBar = isBarChart && barOrientation === 'horizontal';
+            if (isBarChart) options.indexAxis = isHorizontalBar ? 'y' : 'x';
 
             if (['doughnut', 'polarArea', 'halfDoughnut', 'singleStackedBar', 'radar'].includes(chartType)) {
                 Object.assign(options.plugins.datalabels, {
@@ -1299,18 +1334,20 @@
 
             if (['bar', 'line', 'singleStackedBar'].includes(chartType)) {
                  const isStacked = chartType === 'singleStackedBar';
-                 const useTallYAxis = chartType === 'bar' || chartType === 'line';
+                 const stackedValueAxis = isStacked ? (isHorizontalBar ? 'x' : 'y') : null;
+                 const useTallYAxis = chartType === 'line' || (chartType === 'bar' && !isHorizontalBar);
                  const useOptimizedYAxis = useTallYAxis && yAxisStartMode === 'optimized';
                  const optimizedYAxisMin = useOptimizedYAxis
                     ? calculateOptimizedYAxisMin(datasets)
                     : undefined;
                  if (useTallYAxis) options.maintainAspectRatio = false;
                  options.scales = { 
-                    x: { display: true, stacked: isStacked, beginAtZero: true, max: isStacked ? 100 : undefined, grid: { display: !isStacked } }, 
+                    x: { display: true, stacked: isStacked, beginAtZero: true, max: stackedValueAxis === 'x' ? 100 : undefined, grid: { display: !isStacked } },
                     y: {
                         display: true,
                         stacked: isStacked,
                         beginAtZero: !useOptimizedYAxis,
+                        max: stackedValueAxis === 'y' ? 100 : undefined,
                         min: optimizedYAxisMin,
                         grace: useTallYAxis ? '30%' : undefined,
                         grid: { display: !isStacked }
@@ -1864,7 +1901,7 @@
             button.classList.toggle('hover:bg-gray-300', !hasImage);
             clearButton.classList.toggle('hidden', !hasImage);
             clearButton.classList.toggle('flex', hasImage);
-            label.innerText = hasImage ? '로컬 이미지 표시중' : '로컬 이미지';
+            label.innerText = hasImage ? '백이미지 표시중' : '백이미지';
         }
 
         function clearLocalImageOverlay() {
@@ -2253,6 +2290,8 @@
 
             document.getElementById('chartType').addEventListener('change', (e) => {
                 const chartType = e.target.value;
+                if (chartType === 'bar') barOrientation = 'vertical';
+                if (chartType === 'singleStackedBar') barOrientation = 'horizontal';
                 const isMultiSet = chartType === 'line' || chartType === 'singleStackedBar' || chartType === 'radar' || chartType === 'sankey'; 
                 
                 document.getElementById('addDatasetBtn').classList.toggle('hidden', !isMultiSet);
@@ -2321,6 +2360,11 @@
             });
             document.getElementById('toggleLayoutEditorBtn').addEventListener('click', toggleLayoutEditor);
             document.getElementById('toggleChartRangeEditorBtn').addEventListener('click', toggleChartRangeEditor);
+            document.getElementById('toggleBarOrientationBtn').addEventListener('click', () => {
+                barOrientation = barOrientation === 'horizontal' ? 'vertical' : 'horizontal';
+                updateUIForChartType(document.getElementById('chartType').value);
+                createOrUpdateChart();
+            });
             document.getElementById('resetChartRangeBtn').addEventListener('click', resetChartRange);
             document.getElementById('chartRangeBox').addEventListener('pointerdown', startChartRangeInteraction);
             document.getElementById('barWidthSlider').addEventListener('input', (event) => {
