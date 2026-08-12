@@ -130,9 +130,51 @@
             flex: 1 1 auto;
             width: auto;
         }
+        .update-notice-feature-icon {
+            background: #f0ebff;
+            color: #5b2bd1;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center min-h-screen p-4 sm:p-6 lg:p-8">
+
+    <div id="updateNotice" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/25 p-4" role="dialog" aria-modal="true" aria-labelledby="updateNoticeTitle">
+        <div class="relative w-full max-w-[430px] overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div class="relative overflow-hidden">
+                <img src="update-notice-hero.png" alt="새로운 기능" class="block w-full" draggable="false">
+                <button id="dismissUpdateNoticeBtn" type="button" aria-label="업데이트 안내 닫기" class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-900/80 text-white transition hover:bg-gray-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m7 7 10 10M17 7 7 17"/></svg>
+                </button>
+            </div>
+            <div class="px-7 pb-7 pt-7 text-center">
+                <h2 id="updateNoticeTitle" class="sr-only">업데이트 안내</h2>
+                <div class="space-y-6 text-left">
+                    <div class="flex gap-3 border-b border-gray-200 pb-6">
+                        <div class="update-notice-feature-icon flex h-[58px] w-[58px] flex-none items-center justify-center rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-bold text-[#5b2bd1]">공유 링크로 입력 데이터와 설정을 그대로 전달</h3>
+                            <p class="mt-1 text-xs leading-4 text-gray-500">링크 하나로 모든 데이터를 간편하게 공유하고, 받은 그대로 불러와 사용할 수 있어요.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="update-notice-feature-icon relative flex h-[58px] w-[58px] flex-none items-center justify-center rounded-xl">
+                            <svg class="-translate-x-1 translate-y-1" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10"/><path d="M12 20V4"/><path d="M19 20v-7"/></svg>
+                            <span class="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#5b2bd1] shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                            </span>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-bold text-[#5b2bd1]">막대그래프를 세로 또는 가로로 전환</h3>
+                            <p class="mt-1 text-xs leading-4 text-gray-500">상황에 맞게 세로와 가로 그래프를 자유롭게 전환해 더 원하는 방식으로 표현할 수 있어요.</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="confirmUpdateNoticeBtn" type="button" class="mt-7 w-full rounded-md bg-[#5b2bd1] py-3 text-sm font-bold text-white transition hover:bg-[#4820b5]">확인했어요</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 탭 네비게이션 -->
     <div class="w-full max-w-[1440px] mx-auto mb-6 flex border-b border-gray-200">
@@ -511,6 +553,7 @@
         let linePointStyle = 'circle';
         let fillOpacityPercent = 100;
         let yAxisStartMode = 'zero';
+        const UPDATE_NOTICE_VERSION = '2026-08-13-new-modal';
         const EXPORT_WIDTH = 1920;
         const EXPORT_HEIGHT = 1080;
         const EXPORT_PIXEL_RATIO = 2;
@@ -1866,6 +1909,35 @@
             }
         }
 
+        function showUpdateNotice() {
+            const notice = document.getElementById('updateNotice');
+            if (!notice) return;
+            const forcePreview = new URLSearchParams(window.location.search).has('preview-update');
+
+            try {
+                if (!forcePreview && localStorage.getItem('graphGeneratorUpdateNotice') === UPDATE_NOTICE_VERSION) return;
+            } catch (error) {
+                // Storage may be unavailable in private or restricted browser contexts.
+            }
+
+            notice.classList.remove('hidden');
+            notice.classList.add('flex');
+        }
+
+        function dismissUpdateNotice() {
+            const notice = document.getElementById('updateNotice');
+            if (!notice) return;
+
+            try {
+                localStorage.setItem('graphGeneratorUpdateNotice', UPDATE_NOTICE_VERSION);
+            } catch (error) {
+                // The notice can still close when browser storage is unavailable.
+            }
+
+            notice.classList.add('hidden');
+            notice.classList.remove('flex');
+        }
+
         function updateDataLabelButtonState() {
             const button = document.getElementById('toggleLabelBtn');
             if (!button) return;
@@ -2479,6 +2551,7 @@
             updateUIForChartType(document.getElementById('chartType').value);
             updateYAxisStartButtons();
             createOrUpdateChart();
+            showUpdateNotice();
 
             if (document.fonts?.load) {
                 document.fonts.load("16px 'MBC Chart'")
@@ -2528,6 +2601,11 @@
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
             document.getElementById('saveTransparentChartBtn').addEventListener('click', saveGraphOnlyTransparentPng);
             document.getElementById('copyShareLinkBtn').addEventListener('click', copyShareLink);
+            document.getElementById('confirmUpdateNoticeBtn').addEventListener('click', dismissUpdateNotice);
+            document.getElementById('dismissUpdateNoticeBtn').addEventListener('click', dismissUpdateNotice);
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') dismissUpdateNotice();
+            });
             document.getElementById('toggleScreenGuideBtn').addEventListener('click', () => {
                 isScreenGuideVisible = !isScreenGuideVisible;
                 updateScreenGuide();
