@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>라이선스 안내 | 간편 그래프 생성기</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-width: 320px;
+            background: #f3f4f6;
+            color: #1f2937;
+            font-family: Inter, "Noto Sans KR", Arial, sans-serif;
+        }
+        main { width: min(720px, calc(100% - 32px)); margin: 48px auto; }
+        article { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 32px; box-shadow: 0 12px 32px rgba(17, 24, 39, .08); }
+        h1 { margin: 0 0 8px; font-size: 26px; }
+        h2 { margin: 28px 0 10px; font-size: 17px; }
+        p, li { color: #4b5563; font-size: 15px; line-height: 1.65; }
+        ul { padding-left: 20px; }
+        .badge { display: inline-block; margin-bottom: 16px; padding: 5px 9px; border-radius: 5px; background: #eef2ff; color: #4338ca; font-size: 13px; font-weight: 700; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+        a { color: #2563eb; }
+        .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 15px; border-radius: 6px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; }
+        .button.secondary { background: #e5e7eb; color: #374151; }
+        @media (max-width: 520px) { main { margin: 24px auto; } article { padding: 24px; } }
+    </style>
+</head>
+<body>
+    <main>
+        <article>
+            <span class="badge">AGPL-3.0-only</span>
+            <h1>라이선스 안내</h1>
+            <p>간편 그래프 생성기의 소스 코드는 GNU Affero General Public License v3.0으로 배포됩니다.</p>
+
+            <h2>사용과 수정</h2>
+            <ul>
+                <li>소스 코드는 사용, 수정, 배포할 수 있습니다.</li>
+                <li>수정본을 배포하거나 웹서비스로 제공하는 경우, 이용자가 해당 수정본의 대응 소스 코드에 접근할 수 있어야 합니다.</li>
+                <li>저작권, 라이선스 및 변경 고지를 유지해야 합니다.</li>
+            </ul>
+
+            <h2>라이선스 범위</h2>
+            <p>MBC NEW 등 사내 전용 폰트, 로고 및 상표, 사용자가 입력하거나 불러온 데이터·이미지, 외부 라이브러리는 본 라이선스의 대상에 포함되지 않습니다. 각 항목에는 별도의 권리와 이용 조건이 적용됩니다.</p>
+
+            <div class="actions">
+                <a class="button" href="https://github.com/answind0904/graph_generator/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 원문 보기</a>
+                <a class="button secondary" href="./">그래프 생성기로 돌아가기</a>
+            </div>
+        </article>
+    </main>
+</body>
+</html>
