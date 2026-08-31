@@ -21,6 +21,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.14.0/dist/chartjs-chart-sankey.min.js"></script>
     <!-- Chart.js 데이터 라벨 플러그인 로드 -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <!-- 실험용 WebGL 3D 막대 그래프 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- PSD 레이어 파일 생성 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-psd@29.0.0/dist/bundle.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         @font-face {
@@ -288,6 +293,7 @@
                     <div id="chartPreviewFrame" class="relative w-full aspect-video outline outline-1 outline-gray-300">
                         <img id="localImageOverlay" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-contain pointer-events-none select-none" style="visibility: hidden;">
                         <canvas id="myChart" class="absolute inset-0 z-10 w-full h-full"></canvas>
+                        <canvas id="threeBarChart" aria-label="3D 막대 그래프" class="absolute inset-0 z-10 hidden h-full w-full cursor-grab touch-none active:cursor-grabbing"></canvas>
                         <img id="screenGuideOverlay" src="preview-assets/screen_guide.png" alt="" class="absolute inset-0 z-20 w-full h-full object-fill pointer-events-none select-none transition-opacity duration-100" style="visibility: hidden; opacity: 1;">
                         <div id="chartRangeEditor" class="absolute inset-0 z-30 hidden pointer-events-none select-none">
                             <div data-range-mask="top" class="absolute bg-black/25"></div>
@@ -361,6 +367,25 @@
                     </button>
                     <div id="barOrientationTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">가로 막대로 전환</div>
                 </div>
+                <div id="bar3dControl" class="group relative hidden w-full">
+                    <button id="toggleBar3dBtn" type="button" aria-pressed="false" aria-label="3D 뷰 켜기" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+                    </button>
+                    <div id="bar3dTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">3D 뷰 켜기 (실험)</div>
+                </div>
+                <div id="threeLightingControl" class="group relative hidden w-full">
+                    <button type="button" aria-label="3D 조명" class="flex h-8 w-full items-center justify-center rounded-md bg-amber-50 text-amber-600 transition hover:bg-amber-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5C14.6 15.1 14 16 14 17h-4c0-1-.6-1.9-1.5-2.5Z"/></svg>
+                    </button>
+                    <div class="invisible absolute right-full top-1/2 z-50 w-[170px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                        <div class="w-40 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
+                            <label for="threeLightIntensitySlider" class="mb-1 block text-[10px] font-bold text-gray-700">조명 세기</label>
+                            <input id="threeLightIntensitySlider" type="range" min="20" max="200" step="5" value="100" class="mb-2 w-full accent-amber-500" aria-label="3D 조명 세기">
+                            <label for="threeLightAngleSlider" class="mb-1 block text-[10px] font-bold text-gray-700">조명 방향</label>
+                            <input id="threeLightAngleSlider" type="range" min="-180" max="180" step="5" value="45" class="w-full accent-amber-500" aria-label="3D 조명 방향">
+                        </div>
+                    </div>
+                </div>
                 <div id="barWidthControl" class="group relative w-full">
                     <button id="toggleLineDashBtn" type="button" aria-pressed="false" aria-label="막대 폭" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
                         <span class="bar-width-icon flex items-end gap-[2px] pb-1.5"><span class="block h-3 w-1.5 bg-current"></span><span class="block h-5 w-1.5 bg-current"></span><span class="block h-4 w-1.5 bg-current"></span></span>
@@ -431,6 +456,9 @@
                 <button id="saveTransparentChartBtn" class="w-full sm:w-auto bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition duration-300 text-sm shadow-md">
                     투명 PNG 저장
                 </button>
+                <button id="savePsdBtn" class="w-full sm:w-auto bg-violet-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-violet-700 transition duration-300 text-sm shadow-md">
+                    PSD 저장
+                </button>
                 <button id="saveChartBtn" class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-300 text-sm shadow-md">
                     이미지 저장
                 </button>
@@ -438,7 +466,7 @@
                 </div>
             </div>
             <footer class="mt-1 flex justify-end text-xs text-gray-500">
-                <a href="license.html" class="transition hover:text-blue-600">라이선스 안내</a>
+                <a href="LICENSE" class="transition hover:text-blue-600">라이선스 안내</a>
             </footer>
         </div>
     </div>
@@ -554,6 +582,13 @@
         let chartRangeFramePending = false;
         let barWidthPercent = 70;
         let barOrientation = 'vertical';
+        let isBar3DEnabled = false;
+        let threeBarState = null;
+        let threeBarResizeObserver = null;
+        let threeLightIntensityPercent = 100;
+        let threeLightAngle = 45;
+        let isThreeCameraUiBlocked = false;
+        let isThreeCameraWindowActive = true;
         let lineStrokeWidth = 10;
         let lineStrokeStyle = 'solid';
         let linePointStyle = 'circle';
@@ -569,6 +604,8 @@
             id: 'squareBottomAlign',
             afterDraw(chart) {
                 if (chart.options.customChartType !== 'square') return;
+                const squareLayer = chart.options.squareLayer || 'combined';
+                if (squareLayer === 'hidden') return;
                 const chartArea = chart.chartArea;
                 const ctx = chart.ctx;
                 const dataset = chart.data.datasets[0];
@@ -613,15 +650,17 @@
                         || (Array.isArray(dataset.borderColor) ? dataset.borderColor[item.index] : dataset.borderColor)
                         || '#3B82F6';
 
-                    ctx.fillStyle = fillColor;
-                    ctx.strokeStyle = strokeColor;
-                    ctx.fillRect(x, y, side, side);
-                    if ((dataset.borderWidth || 0) > 0) {
-                        ctx.lineWidth = dataset.borderWidth;
-                        ctx.strokeRect(x, y, side, side);
+                    if (squareLayer !== 'labels') {
+                        ctx.fillStyle = fillColor;
+                        ctx.strokeStyle = strokeColor;
+                        ctx.fillRect(x, y, side, side);
+                        if ((dataset.borderWidth || 0) > 0) {
+                            ctx.lineWidth = dataset.borderWidth;
+                            ctx.strokeRect(x, y, side, side);
+                        }
                     }
 
-                    if (isDataLabelVisible) {
+                    if (squareLayer !== 'graph' && isDataLabelVisible && !isGraphOnlyMode) {
                         const fontSize = Math.max(10, Math.min(14, side * 0.14));
                         ctx.font = `400 ${fontSize}px ${CHART_FONT_FAMILY}`;
                         ctx.fillStyle = getReadableTextColor(fillColor);
@@ -636,6 +675,50 @@
                     currentX += radius * 2 + gap;
                 });
 
+                ctx.restore();
+            }
+        };
+
+        const parallelDoughnutPlugin = {
+            id: 'parallelDoughnut',
+            afterUpdate(chart) {
+                if (chart.options.customChartType !== 'doughnut' || chart.data.datasets.length < 2) return;
+                const { chartArea } = chart;
+                if (!chartArea) return;
+
+                const count = chart.data.datasets.length;
+                const slotWidth = chartArea.width / count;
+                const labelSpace = 34;
+                const usableHeight = Math.max(chartArea.height - labelSpace, 1);
+                const radius = Math.max(12, Math.min(slotWidth * 0.38, usableHeight * 0.43));
+                const centerY = chartArea.top + usableHeight * 0.48;
+
+                chart.data.datasets.forEach((_, datasetIndex) => {
+                    const centerX = chartArea.left + slotWidth * (datasetIndex + 0.5);
+                    const meta = chart.getDatasetMeta(datasetIndex);
+                    meta.data.forEach(arc => {
+                        arc.x = centerX;
+                        arc.y = centerY;
+                        arc.outerRadius = radius;
+                        arc.innerRadius = radius * 0.52;
+                    });
+                    meta.parallelCenter = { x: centerX, y: centerY, radius };
+                });
+            },
+            afterDatasetsDraw(chart) {
+                if (chart.options.customChartType !== 'doughnut' || chart.data.datasets.length < 2) return;
+                if (chart.options.showParallelDatasetLabels === false) return;
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.font = `600 13px ${CHART_FONT_FAMILY}`;
+                ctx.fillStyle = '#374151';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                chart.data.datasets.forEach((dataset, datasetIndex) => {
+                    const center = chart.getDatasetMeta(datasetIndex).parallelCenter;
+                    if (!center) return;
+                    ctx.fillText(dataset.label || `데이터셋 ${datasetIndex + 1}`, center.x, center.y + center.radius + 11);
+                });
                 ctx.restore();
             }
         };
@@ -665,6 +748,361 @@
                 b = parseInt(hex.substring(5, 7), 16);
             }
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function isThreeBarViewActive(chartType = document.getElementById('chartType')?.value) {
+            return isBar3DEnabled && chartType === 'bar';
+        }
+
+        function getThreeColor(color) {
+            const hex = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(color || '');
+            if (hex) return new THREE.Color(color);
+
+            const rgb = /^rgba?\(\s*([\d.]+)[,\s]+\s*([\d.]+)[,\s]+\s*([\d.]+)/i.exec(color || '');
+            if (rgb) {
+                return new THREE.Color(Number(rgb[1]) / 255, Number(rgb[2]) / 255, Number(rgb[3]) / 255);
+            }
+            return new THREE.Color('#3B82F6');
+        }
+
+        function createThreeTextSprite(text, { color = '#111827', fontSize = 34 } = {}) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const font = `600 ${fontSize}px ${CHART_FONT_FAMILY}`;
+            context.font = font;
+            const width = Math.ceil(context.measureText(text).width + 28);
+            canvas.width = Math.max(width, 64);
+            canvas.height = fontSize + 22;
+            context.font = font;
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set((canvas.width / canvas.height) * 0.7, 0.7, 1);
+            sprite.userData.exportRole = 'label';
+            return sprite;
+        }
+
+        function disposeThreeBarScene() {
+            if (!threeBarState?.scene) return;
+            threeBarState.scene.traverse(object => {
+                if (object.geometry) object.geometry.dispose?.();
+                if (object.material) {
+                    const materials = Array.isArray(object.material) ? object.material : [object.material];
+                    materials.forEach(material => {
+                        material.map?.dispose?.();
+                        material.dispose?.();
+                    });
+                }
+            });
+            threeBarState.scene.clear();
+        }
+
+        function getThreeColorOpacity(color) {
+            if (!color || color === 'transparent') return 0;
+            const rgba = /^rgba\(\s*[\d.]+[,\s]+\s*[\d.]+[,\s]+\s*[\d.]+\s*[,/]\s*([\d.]+)\s*\)$/i.exec(color);
+            return rgba ? Math.min(Math.max(Number(rgba[1]), 0), 1) : 1;
+        }
+
+        function renderThreeBarSceneAtSize(width, height) {
+            if (!threeBarState || !width || !height) return;
+            const viewport = {
+                x: width * chartRange.x / 100,
+                y: height * (100 - chartRange.y - chartRange.height) / 100,
+                width: Math.max(1, width * chartRange.width / 100),
+                height: Math.max(1, height * chartRange.height / 100)
+            };
+            const { renderer, scene, camera } = threeBarState;
+            camera.aspect = viewport.width / viewport.height;
+            camera.updateProjectionMatrix();
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, width, height);
+            renderer.clear();
+            renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
+            renderer.setScissor(viewport.x, viewport.y, viewport.width, viewport.height);
+            renderer.setScissorTest(true);
+            renderer.render(scene, camera);
+        }
+
+        function renderThreeBarSceneFrame() {
+            if (!threeBarState || !isThreeBarViewActive()) return;
+            const frame = document.getElementById('chartPreviewFrame');
+            if (!frame) return;
+            const { width, height } = frame.getBoundingClientRect();
+            renderThreeBarSceneAtSize(width, height);
+        }
+
+        function updateThreeLighting() {
+            if (!threeBarState) return;
+            const intensity = threeLightIntensityPercent / 100;
+            const angle = THREE.MathUtils.degToRad(threeLightAngle);
+            const { keyLight, fillLight, hemisphereLight } = threeBarState;
+            if (keyLight) {
+                keyLight.intensity = 2.7 * intensity;
+                keyLight.position.set(Math.cos(angle) * 10, 11, Math.sin(angle) * 10);
+            }
+            if (fillLight) fillLight.intensity = 1.2 * intensity;
+            if (hemisphereLight) hemisphereLight.intensity = 1.65 * intensity;
+            renderThreeBarSceneFrame();
+        }
+
+        function updateThreeCameraInteractionState() {
+            if (!threeBarState?.controls) return;
+            const enabled = isThreeBarViewActive()
+                && !isChartRangeEditorVisible
+                && !isThreeCameraUiBlocked
+                && isThreeCameraWindowActive;
+            threeBarState.controls.enabled = enabled;
+            const canvas = document.getElementById('threeBarChart');
+            if (canvas) canvas.style.cursor = enabled ? 'grab' : 'default';
+        }
+
+        function setThreeCameraUiBlocked(blocked) {
+            isThreeCameraUiBlocked = blocked;
+            updateThreeCameraInteractionState();
+        }
+
+        function resizeThreeBarView() {
+            if (!threeBarState) return;
+            const frame = document.getElementById('chartPreviewFrame');
+            if (!frame) return;
+            const { width, height } = frame.getBoundingClientRect();
+            if (!width || !height) return;
+            threeBarState.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            threeBarState.renderer.setSize(width, height, false);
+            renderThreeBarSceneFrame();
+        }
+
+        function ensureThreeBarView() {
+            const canvas = document.getElementById('threeBarChart');
+            const frame = document.getElementById('chartPreviewFrame');
+            if (!canvas || !frame || !window.THREE || !THREE.OrbitControls) return null;
+            if (threeBarState) return threeBarState;
+
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setClearColor(0xffffff, 0);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.1, 100);
+            camera.position.set(10, 8, 13);
+            const controls = new THREE.OrbitControls(camera, canvas);
+            controls.enableDamping = false;
+            controls.enableRotate = true;
+            controls.enablePan = true;
+            controls.enableZoom = true;
+            controls.screenSpacePanning = true;
+            controls.rotateSpeed = 0.65;
+            controls.panSpeed = 0.8;
+            controls.zoomSpeed = 0.8;
+            controls.minDistance = 6;
+            controls.maxDistance = 28;
+            controls.maxPolarAngle = Math.PI / 2.05;
+            controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+            controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+            controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+            controls.touches.ONE = THREE.TOUCH.ROTATE;
+            controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+            controls.target.set(0, 2.2, 0);
+            controls.addEventListener('change', renderThreeBarSceneFrame);
+
+            threeBarState = { renderer, scene, camera, controls };
+            if (!threeBarResizeObserver && window.ResizeObserver) {
+                threeBarResizeObserver = new ResizeObserver(resizeThreeBarView);
+                threeBarResizeObserver.observe(frame);
+            }
+            window.addEventListener('resize', resizeThreeBarView, { passive: true });
+            canvas.addEventListener('contextmenu', event => event.preventDefault());
+            updateThreeCameraInteractionState();
+            return threeBarState;
+        }
+
+        function hideThreeBarView() {
+            const threeCanvas = document.getElementById('threeBarChart');
+            const chartCanvas = document.getElementById('myChart');
+            threeCanvas?.classList.add('hidden');
+            chartCanvas?.classList.remove('hidden');
+            if (threeCanvas) threeCanvas.style.display = 'none';
+            if (chartCanvas) chartCanvas.style.display = 'block';
+            updateThreeCameraInteractionState();
+        }
+
+        function renderThreeBarView(labels, datasets) {
+            if (!isThreeBarViewActive()) {
+                hideThreeBarView();
+                return;
+            }
+
+            const state = ensureThreeBarView();
+            if (!state) {
+                isBar3DEnabled = false;
+                updateBar3dButton();
+                hideThreeBarView();
+                alert('3D 뷰를 불러오지 못했습니다. 인터넷 연결 후 다시 시도하세요.');
+                return;
+            }
+
+            const threeCanvas = document.getElementById('threeBarChart');
+            const chartCanvas = document.getElementById('myChart');
+            threeCanvas.classList.remove('hidden');
+            chartCanvas.classList.add('hidden');
+            threeCanvas.style.display = 'block';
+            chartCanvas.style.display = 'none';
+            updateThreeCameraInteractionState();
+            disposeThreeBarScene();
+
+            const { scene, camera, controls, renderer } = state;
+            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 1.65);
+            scene.add(hemisphereLight);
+            const keyLight = new THREE.DirectionalLight(0xffffff, 2.7);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.set(2048, 2048);
+            keyLight.shadow.camera.near = 0.5;
+            keyLight.shadow.camera.far = 40;
+            keyLight.shadow.camera.left = -10;
+            keyLight.shadow.camera.right = 10;
+            keyLight.shadow.camera.top = 10;
+            keyLight.shadow.camera.bottom = -10;
+            keyLight.shadow.bias = -0.0005;
+            keyLight.shadow.normalBias = 0.025;
+            scene.add(keyLight);
+            scene.add(keyLight.target);
+            const fillLight = new THREE.DirectionalLight(0xdbeafe, 1.2);
+            fillLight.position.set(-8, 4, -6);
+            scene.add(fillLight);
+            state.hemisphereLight = hemisphereLight;
+            state.keyLight = keyLight;
+            state.fillLight = fillLight;
+
+            const datasetList = Array.isArray(datasets) ? datasets : [datasets];
+            const seriesValues = datasetList.map(dataset => dataset.data.map(value => Number(value) || 0));
+            const largestValue = Math.max(1, ...seriesValues.flat().map(value => Math.abs(value)));
+            const count = Math.max(labels.length, 1);
+            const datasetCount = Math.max(datasetList.length, 1);
+            const isHorizontal = barOrientation === 'horizontal';
+            const spacing = count === 1 ? 0 : Math.min(isHorizontal ? 1.65 : 2.7, (isHorizontal ? 8 : 10) / (count - 1));
+            const groupThickness = Math.min(1.55, Math.max(0.38, Math.max(spacing, 1.2) * (barWidthPercent / 100) * 0.92));
+            const barThickness = datasetCount > 1 ? groupThickness / datasetCount * 0.88 : groupThickness;
+            const datasetOffsetStep = barThickness * 1.1;
+
+            if (isHorizontal) {
+                const baseline = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -5, 0), new THREE.Vector3(0, 5, 0)]),
+                    new THREE.LineBasicMaterial({ color: 0x94a3b8 })
+                );
+                baseline.userData.exportRole = 'guide';
+                scene.add(baseline);
+                const grid = new THREE.GridHelper(13, 13, 0xcbd5e1, 0xe2e8f0);
+                grid.rotation.x = Math.PI / 2;
+                grid.position.z = -0.7;
+                grid.userData.exportRole = 'guide';
+                scene.add(grid);
+                const shadowPlane = new THREE.Mesh(
+                    new THREE.PlaneGeometry(15, 12),
+                    new THREE.ShadowMaterial({ color: 0x1f2937, opacity: 0.24, transparent: true })
+                );
+                shadowPlane.position.z = -0.73;
+                shadowPlane.receiveShadow = true;
+                scene.add(shadowPlane);
+            } else {
+                const baseline = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-6.4, 0, 0), new THREE.Vector3(6.4, 0, 0)]),
+                    new THREE.LineBasicMaterial({ color: 0x94a3b8 })
+                );
+                baseline.userData.exportRole = 'guide';
+                scene.add(baseline);
+                const grid = new THREE.GridHelper(13, 13, 0xcbd5e1, 0xe2e8f0);
+                grid.position.y = -0.015;
+                grid.userData.exportRole = 'guide';
+                scene.add(grid);
+                const shadowPlane = new THREE.Mesh(
+                    new THREE.PlaneGeometry(15, 12),
+                    new THREE.ShadowMaterial({ color: 0x1f2937, opacity: 0.24, transparent: true })
+                );
+                shadowPlane.rotation.x = -Math.PI / 2;
+                shadowPlane.position.y = -0.03;
+                shadowPlane.receiveShadow = true;
+                scene.add(shadowPlane);
+            }
+
+            labels.forEach((label, index) => {
+                const categoryCenter = isHorizontal
+                    ? ((count - 1) / 2 - index) * spacing
+                    : (index - (count - 1) / 2) * spacing;
+
+                datasetList.forEach((dataset, datasetIndex) => {
+                    const value = seriesValues[datasetIndex]?.[index] || 0;
+                    const barLength = value === 0 ? 0.035 : Math.max(0.18, Math.abs(value) / largestValue * 6.1);
+                    const fillColor = Array.isArray(dataset.backgroundColor)
+                        ? dataset.backgroundColor[index]
+                        : dataset.backgroundColor;
+                    const opacity = getThreeColorOpacity(fillColor);
+                    const material = new THREE.MeshStandardMaterial({
+                        color: getThreeColor(fillColor),
+                        roughness: 0.46,
+                        metalness: 0.16,
+                        transparent: opacity < 1,
+                        opacity
+                    });
+                    const offset = (datasetIndex - (datasetCount - 1) / 2) * datasetOffsetStep;
+
+                    if (isHorizontal) {
+                        const y = categoryCenter - offset;
+                        const mesh = new THREE.Mesh(new THREE.BoxGeometry(barLength, barThickness, 1.35), material);
+                        mesh.position.set(value >= 0 ? barLength / 2 : -barLength / 2, y, 0);
+                        mesh.castShadow = opacity > 0.02;
+                        mesh.receiveShadow = true;
+                        scene.add(mesh);
+                        if (isDataLabelVisible && !isGraphOnlyMode) {
+                            const valueLabel = createThreeTextSprite(String(value.toLocaleString()), { fontSize: 27 });
+                            valueLabel.position.set(value >= 0 ? barLength + 0.48 : -barLength - 0.48, y, 0.1);
+                            scene.add(valueLabel);
+                        }
+                    } else {
+                        const x = categoryCenter + offset;
+                        const mesh = new THREE.Mesh(new THREE.BoxGeometry(barThickness, barLength, 1.35), material);
+                        mesh.position.set(x, value >= 0 ? barLength / 2 : -barLength / 2, 0);
+                        mesh.castShadow = opacity > 0.02;
+                        mesh.receiveShadow = true;
+                        scene.add(mesh);
+                        if (isDataLabelVisible && !isGraphOnlyMode) {
+                            const valueLabel = createThreeTextSprite(String(value.toLocaleString()), { fontSize: 27 });
+                            valueLabel.position.set(x, value >= 0 ? barLength + 0.37 : -barLength - 0.42, 0.1);
+                            scene.add(valueLabel);
+                        }
+                    }
+                });
+
+                if (!isGraphOnlyMode) {
+                    const categoryLabel = createThreeTextSprite(label || `항목 ${index + 1}`, { color: '#374151', fontSize: 28 });
+                    if (isHorizontal) categoryLabel.position.set(-6.9, categoryCenter, 0.1);
+                    else categoryLabel.position.set(categoryCenter, -0.42, 0.95);
+                    categoryLabel.scale.multiplyScalar(0.86);
+                    scene.add(categoryLabel);
+                }
+            });
+
+            if (!isGraphOnlyMode) {
+                const title = createThreeTextSprite('생성된 그래프', { color: '#1f2937', fontSize: 38 });
+                title.position.set(0, isHorizontal ? 5.7 : 7.3, 0);
+                title.scale.multiplyScalar(1.15);
+                scene.add(title);
+            }
+            if (state.orientation !== barOrientation) {
+                camera.position.set(isHorizontal ? 11 : 10, isHorizontal ? 4 : 8, 13);
+                state.orientation = barOrientation;
+            }
+            controls.target.set(0, isHorizontal ? 0 : 2.35, 0);
+            controls.update();
+            updateThreeLighting();
+            resizeThreeBarView();
         }
 
         function getColorInputValue(input, fallback = 'transparent') {
@@ -815,6 +1253,7 @@
             if (labels.length === 0 || datasets.length === 0 || (datasets[0].data.length === 0 && chartType !== 'singleStackedBar')) {
                 if(myChart) myChart.destroy();
                 myChart = null;
+                hideThreeBarView();
                 return;
             }
             
@@ -832,8 +1271,9 @@
                 type: finalChartType,
                 data: { labels, datasets },
                 options,
-                plugins: [squareBottomAlignPlugin, ChartDataLabels],
+                plugins: [squareBottomAlignPlugin, parallelDoughnutPlugin, ChartDataLabels],
             });
+            renderThreeBarView(labels, datasets);
         }
         
         function parseAllData(chartType) {
@@ -994,6 +1434,27 @@
                     });
                 });
 
+            } else if (chartType === 'bar') {
+                chartLabels = labelValues;
+                const additionalBlocks = Array.from(document.querySelectorAll('.additional-dataset-block'));
+                const createBarDataset = (label, values, datasetIndex) => ({
+                    label,
+                    data: values,
+                    backgroundColor: rowColors.map(rowColor => hexToRgba(rowColor, fillOpacity)),
+                    borderColor: 'rgba(0,0,0,0)',
+                    borderWidth: 0,
+                    barPercentage: barWidthPercent / 100,
+                    categoryPercentage: additionalBlocks.length > 0 ? 0.82 : 0.8,
+                    datasetOrder: datasetIndex
+                });
+
+                datasets.push(createBarDataset(mainDatasetName, dataValues, 0));
+                additionalBlocks.forEach((block, index) => {
+                    const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
+                    const values = Array.from(block.querySelectorAll('input.dataset-value')).map(input => Number(input.value.trim()) || 0);
+                    datasets.push(createBarDataset(name, values, index + 1));
+                });
+
             } else if (chartType === 'singleStackedBar') {
                 chartLabels = [mainDatasetName];
                 const additionalBlocks = document.querySelectorAll('.additional-dataset-block');
@@ -1043,6 +1504,28 @@
                         inflateAmount: 1,
                         barPercentage: barWidthPercent / 100,
                     };
+                });
+
+            } else if (chartType === 'doughnut') {
+                chartLabels = labelValues;
+                const backgroundColors = rowColors.map(color => hexToRgba(color, fillOpacity));
+                const createDoughnutDataset = (label, values) => ({
+                    label,
+                    data: values,
+                    backgroundColor: backgroundColors,
+                    borderColor: backgroundColors,
+                    hoverBorderColor: backgroundColors,
+                    borderWidth: 2,
+                    hoverBorderWidth: 2,
+                    borderAlign: 'inner',
+                    spacing: 0
+                });
+
+                datasets.push(createDoughnutDataset(mainDatasetName, dataValues));
+                document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
+                    const name = block.querySelector('.dataset-name').value || `데이터셋 ${index + 2}`;
+                    const values = Array.from(block.querySelectorAll('input.dataset-value')).map(input => Number(input.value.trim()) || 0);
+                    datasets.push(createDoughnutDataset(name, values));
                 });
 
             } else {
@@ -1116,16 +1599,30 @@
         function updateUIForChartType(chartType) {
             const isLineOrRadar = chartType === 'line' || chartType === 'radar';
             const isBarChart = chartType === 'bar' || chartType === 'singleStackedBar';
+            const supportsAdditionalDatasets = ['bar', 'doughnut', 'line', 'singleStackedBar', 'radar', 'sankey'].includes(chartType);
+            const isThreeDBarView = chartType === 'bar' && isBar3DEnabled;
             const supportsWidthControl = isBarChart || chartType === 'line';
-            const supportsYAxisStart = chartType === 'line' || (chartType === 'bar' && barOrientation !== 'horizontal');
+            const supportsYAxisStart = !isThreeDBarView && (chartType === 'line' || (chartType === 'bar' && barOrientation !== 'horizontal'));
             const usesMainDatasetColor = isLineOrRadar || chartType === 'sankey';
             const usesDatasetColor = isLineOrRadar || chartType === 'sankey';
+            document.getElementById('addDatasetBtn')?.classList.toggle('hidden', !supportsAdditionalDatasets);
+            document.getElementById('additional-datasets-container')?.classList.toggle('hidden', !supportsAdditionalDatasets);
             document.getElementById('barOrientationControl')?.classList.toggle('hidden', !isBarChart);
+            document.getElementById('bar3dControl')?.classList.toggle('hidden', chartType !== 'bar');
+            document.getElementById('threeLightingControl')?.classList.toggle('hidden', !isThreeDBarView);
             document.getElementById('barWidthControl')?.classList.toggle('hidden', !supportsWidthControl);
             document.getElementById('linePointStyleControl')?.classList.toggle('hidden', chartType !== 'line');
             document.getElementById('yAxisStartControl')?.classList.toggle('hidden', !supportsYAxisStart);
+            const psdButton = document.getElementById('savePsdBtn');
+            if (psdButton) {
+                psdButton.disabled = isThreeDBarView;
+                psdButton.title = isThreeDBarView ? '3D 모드에서는 이미지 저장을 사용하세요' : '레이어가 분리된 PSD 저장';
+                psdButton.classList.toggle('opacity-40', isThreeDBarView);
+                psdButton.classList.toggle('cursor-not-allowed', isThreeDBarView);
+            }
             updateWidthControl(chartType);
             updateBarOrientationButton();
+            updateBar3dButton();
             updateLinePointStyleButton();
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
@@ -1135,6 +1632,7 @@
             const inputContainer = document.getElementById('data-input-container');
             if (isLineOrRadar) inputContainer.classList.add('hide-row-color');
             else inputContainer.classList.remove('hide-row-color');
+            document.getElementById('bulkRowColorBtn')?.classList.toggle('invisible', isLineOrRadar);
 
             document.querySelectorAll('.additional-dataset-block').forEach(block => {
                 const picker = block.querySelector('.dataset-color-container');
@@ -1162,6 +1660,24 @@
             button.classList.toggle('bg-gray-100', !isHorizontal);
             button.classList.toggle('text-gray-600', !isHorizontal);
             button.classList.toggle('hover:bg-gray-200', !isHorizontal);
+        }
+
+        function updateBar3dButton() {
+            const button = document.getElementById('toggleBar3dBtn');
+            const tooltip = document.getElementById('bar3dTooltip');
+            if (!button || !tooltip) return;
+
+            const nextLabel = isBar3DEnabled ? '3D 뷰 끄기' : '3D 뷰 켜기';
+            button.setAttribute('aria-pressed', String(isBar3DEnabled));
+            button.setAttribute('aria-label', nextLabel);
+            button.setAttribute('title', nextLabel);
+            tooltip.innerText = `${nextLabel} (실험)`;
+            button.classList.toggle('bg-blue-600', isBar3DEnabled);
+            button.classList.toggle('text-white', isBar3DEnabled);
+            button.classList.toggle('hover:bg-blue-700', isBar3DEnabled);
+            button.classList.toggle('bg-gray-100', !isBar3DEnabled);
+            button.classList.toggle('text-gray-600', !isBar3DEnabled);
+            button.classList.toggle('hover:bg-gray-200', !isBar3DEnabled);
         }
 
         function updateWidthControl(chartType) {
@@ -1365,7 +1881,7 @@
                                 return `${originalVal}\n(${percent}%)`;
                             }
                             if (['doughnut', 'polarArea', 'halfDoughnut'].includes(chartType)) {
-                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 if (total === 0) return `${label}\n0 (0%)`;
                                 const percentage = (value / total * 100).toFixed(1) + '%';
                                 if (value / total < 0.05) return `${label}\n(${percentage})`;
@@ -1387,6 +1903,7 @@
             const isBarChart = chartType === 'bar' || chartType === 'singleStackedBar';
             const isHorizontalBar = isBarChart && barOrientation === 'horizontal';
             if (isBarChart) options.indexAxis = isHorizontalBar ? 'y' : 'x';
+            if (chartType === 'bar') options.plugins.legend.display = false;
 
             if (['doughnut', 'polarArea', 'halfDoughnut', 'singleStackedBar', 'radar'].includes(chartType)) {
                 Object.assign(options.plugins.datalabels, {
@@ -1488,7 +2005,7 @@
             };
         }
 
-        function applyGraphOnlyOptions(options) {
+        function makeChartHeaderTransparent(options) {
             const transparent = 'rgba(0, 0, 0, 0)';
             options.plugins.title.color = transparent;
             if (options.plugins.legend.display !== false) {
@@ -1507,6 +2024,11 @@
                     padding: 12
                 };
             }
+        }
+
+        function applyGraphOnlyOptions(options) {
+            const transparent = 'rgba(0, 0, 0, 0)';
+            makeChartHeaderTransparent(options);
             options.plugins.datalabels.display = false;
 
             if (!options.scales) return;
@@ -1827,6 +2349,7 @@
         function removeDataset(button) {
             button.closest('.additional-dataset-block').remove();
             refreshSankeyTransitionRows(false);
+            updateUIForChartType(document.getElementById('chartType').value);
             createOrUpdateChart();
         }
 
@@ -1858,31 +2381,169 @@
             return chartType;
         }
 
-        function createExportChartCanvas({ transparent = false, graphOnly = false } = {}) {
+        function makeLayerDatasetsTransparent(datasets, chartType) {
+            const transparent = 'rgba(0, 0, 0, 0)';
+            return datasets.map(dataset => ({
+                ...dataset,
+                backgroundColor: transparent,
+                borderColor: transparent,
+                pointBackgroundColor: transparent,
+                pointBorderColor: transparent,
+                pointHoverBackgroundColor: transparent,
+                pointHoverBorderColor: transparent,
+                hoverBackgroundColor: transparent,
+                hoverBorderColor: transparent,
+                borderWidth: 0,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                radius: 0,
+                alpha: chartType === 'sankey' ? 0 : dataset.alpha,
+                ...(chartType === 'sankey' ? {
+                    colorFrom: () => transparent,
+                    colorTo: () => transparent,
+                    hoverColorFrom: () => transparent,
+                    hoverColorTo: () => transparent
+                } : {})
+            }));
+        }
+
+        function makeGraphItemLayerDatasets(datasets, chartType, itemIndex, datasetIndex = null) {
+            const transparent = 'rgba(0, 0, 0, 0)';
+
+            if (['doughnut', 'halfDoughnut'].includes(chartType)) {
+                const keepItemColor = (color, dataLength, keepDataset) => {
+                    const colors = Array.isArray(color) ? color : new Array(dataLength).fill(color);
+                    return colors.map((entry, index) => keepDataset && index === itemIndex ? entry : transparent);
+                };
+
+                return datasets.map((dataset, currentDatasetIndex) => {
+                    const keepDataset = datasetIndex === null || currentDatasetIndex === datasetIndex;
+                    return {
+                        ...dataset,
+                        backgroundColor: keepItemColor(dataset.backgroundColor, dataset.data.length, keepDataset),
+                        borderColor: keepItemColor(dataset.borderColor, dataset.data.length, keepDataset),
+                        hoverBackgroundColor: keepItemColor(dataset.hoverBackgroundColor || dataset.backgroundColor, dataset.data.length, keepDataset),
+                        hoverBorderColor: keepItemColor(dataset.hoverBorderColor || dataset.borderColor, dataset.data.length, keepDataset)
+                    };
+                });
+            }
+
+            if (chartType === 'singleStackedBar') {
+                return datasets.map((dataset, datasetIndex) => datasetIndex === itemIndex
+                    ? { ...dataset }
+                    : makeLayerDatasetsTransparent([dataset], chartType)[0]);
+            }
+
+            return datasets;
+        }
+
+        function getPsdGraphItemLayers(chartType, labels, datasets) {
+            if (['doughnut', 'halfDoughnut'].includes(chartType)) {
+                return datasets.flatMap((dataset, datasetIndex) => labels.map((label, itemIndex) => ({
+                    itemIndex,
+                    datasetIndex,
+                    groupName: `${datasetIndex + 1}. ${dataset.label || `데이터셋 ${datasetIndex + 1}`}`,
+                    name: `${itemIndex + 1}. ${label || `항목 ${itemIndex + 1}`}`
+                })));
+            }
+
+            if (chartType === 'singleStackedBar') {
+                return datasets.map((dataset, index) => ({
+                    itemIndex: index,
+                    datasetIndex: null,
+                    groupName: null,
+                    name: `${index + 1}. ${dataset.label || `항목 ${index + 1}`}`
+                }));
+            }
+
+            return [];
+        }
+
+        function makeScalesTransparent(options) {
+            Object.values(options.scales || {}).forEach(scale => {
+                scale.ticks = { ...(scale.ticks || {}), color: 'rgba(0, 0, 0, 0)' };
+                scale.grid = {
+                    ...(scale.grid || {}),
+                    color: 'rgba(0, 0, 0, 0)',
+                    borderColor: 'rgba(0, 0, 0, 0)',
+                    tickColor: 'rgba(0, 0, 0, 0)'
+                };
+                scale.border = { ...(scale.border || {}), color: 'rgba(0, 0, 0, 0)' };
+            });
+        }
+
+        function createExportChartCanvas({ transparent = false, graphOnly = false, layer = 'combined', itemIndex = null, datasetIndex = null } = {}) {
             const chartType = document.getElementById('chartType').value;
-            const { labels, datasets, totalSum } = parseAllData(chartType);
-            if (labels.length === 0 || datasets.length === 0) return null;
+            const { labels, datasets: sourceDatasets, totalSum } = parseAllData(chartType);
+            if (labels.length === 0 || sourceDatasets.length === 0) return null;
 
             const originalGraphOnlyMode = isGraphOnlyMode;
             isGraphOnlyMode = graphOnly;
 
             try {
-                const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = EXPORT_LOGICAL_WIDTH;
-                exportCanvas.height = EXPORT_LOGICAL_HEIGHT;
-                exportCanvas.style.width = `${EXPORT_LOGICAL_WIDTH}px`;
-                exportCanvas.style.height = `${EXPORT_LOGICAL_HEIGHT}px`;
+                const previewFrame = document.getElementById('chartPreviewFrame');
+                const logicalWidth = Math.max(1, Math.round(myChart?.width || previewFrame?.clientWidth || EXPORT_LOGICAL_WIDTH));
+                const logicalHeight = Math.max(1, Math.round(myChart?.height || previewFrame?.clientHeight || EXPORT_LOGICAL_HEIGHT));
+                const exportPixelRatio = Math.min(EXPORT_WIDTH / logicalWidth, EXPORT_HEIGHT / logicalHeight);
+                const renderCanvas = document.createElement('canvas');
+                renderCanvas.width = logicalWidth;
+                renderCanvas.height = logicalHeight;
+                renderCanvas.style.width = `${logicalWidth}px`;
+                renderCanvas.style.height = `${logicalHeight}px`;
 
+                let datasets = sourceDatasets;
+                if (layer === 'labels' || layer === 'structure') {
+                    datasets = makeLayerDatasetsTransparent(sourceDatasets, chartType);
+                } else if (layer === 'graphItem') {
+                    datasets = makeGraphItemLayerDatasets(sourceDatasets, chartType, itemIndex, datasetIndex);
+                }
                 const options = buildChartOptions(
                     chartType,
                     totalSum,
                     datasets,
-                    { width: EXPORT_LOGICAL_WIDTH, height: EXPORT_LOGICAL_HEIGHT }
+                    { width: logicalWidth, height: logicalHeight }
                 );
                 options.responsive = false;
                 options.maintainAspectRatio = false;
-                options.devicePixelRatio = EXPORT_PIXEL_RATIO;
+                options.devicePixelRatio = exportPixelRatio;
                 options.animation = false;
+                options.showParallelDatasetLabels = layer === 'combined' || layer === 'header';
+                options.squareLayer = layer === 'graph'
+                    ? 'graph'
+                    : layer === 'labels'
+                        ? 'labels'
+                        : ['header', 'structure', 'graphItem'].includes(layer)
+                            ? 'hidden'
+                            : 'combined';
+                options.plugins.tooltip.enabled = false;
+
+                const layerPlugins = [];
+                if (layer === 'graph') {
+                    makeChartHeaderTransparent(options);
+                    options.plugins.datalabels.display = false;
+                } else if (layer === 'graphItem') {
+                    makeChartHeaderTransparent(options);
+                    options.plugins.datalabels.display = false;
+                    makeScalesTransparent(options);
+                } else if (layer === 'structure') {
+                    makeChartHeaderTransparent(options);
+                    options.plugins.datalabels.display = false;
+                } else if (layer === 'labels') {
+                    applyGraphOnlyOptions(options);
+                    options.plugins.datalabels.display = (context) => {
+                        if (!isDataLabelVisible) return false;
+                        if (chartType === 'square' || chartType === 'sankey') return false;
+                        if (chartType === 'halfDoughnut') return context.dataset.data[context.dataIndex] > 0;
+                        return true;
+                    };
+                } else if (layer === 'header') {
+                    options.plugins.datalabels.display = false;
+                    Object.values(options.scales || {}).forEach(scale => { scale.display = false; });
+                    layerPlugins.push({
+                        id: 'hideHeaderLayerDatasets',
+                        beforeDatasetDraw() { return false; }
+                    });
+                }
 
                 const exportBackgroundPlugin = {
                     id: 'exportBackground',
@@ -1897,20 +2558,75 @@
                     }
                 };
 
-                const exportChart = new Chart(exportCanvas.getContext('2d'), {
+                const exportChart = new Chart(renderCanvas.getContext('2d'), {
                     type: getFinalChartType(chartType),
                     data: { labels, datasets },
                     options,
-                    plugins: [squareBottomAlignPlugin, ChartDataLabels, exportBackgroundPlugin]
+                    plugins: [squareBottomAlignPlugin, parallelDoughnutPlugin, ChartDataLabels, exportBackgroundPlugin, ...layerPlugins]
                 });
                 exportChart.update('none');
-                return { canvas: exportCanvas, chart: exportChart };
+                if (renderCanvas.width === EXPORT_WIDTH && renderCanvas.height === EXPORT_HEIGHT) {
+                    return { canvas: renderCanvas, chart: exportChart };
+                }
+
+                const outputCanvas = document.createElement('canvas');
+                outputCanvas.width = EXPORT_WIDTH;
+                outputCanvas.height = EXPORT_HEIGHT;
+                outputCanvas.getContext('2d').drawImage(renderCanvas, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+                return { canvas: outputCanvas, chart: exportChart };
             } finally {
                 isGraphOnlyMode = originalGraphOnlyMode;
             }
         }
 
+        function downloadThreeBarImage({ transparent = false, graphOnly = false } = {}) {
+            if (!isThreeBarViewActive() || !threeBarState?.renderer) return false;
+
+            const { renderer, scene } = threeBarState;
+            const originalPixelRatio = renderer.getPixelRatio();
+            const originalClearColor = renderer.getClearColor(new THREE.Color()).clone();
+            const originalClearAlpha = renderer.getClearAlpha();
+            const hiddenObjects = [];
+
+            if (graphOnly) {
+                scene.traverse(object => {
+                    if (!['label', 'guide'].includes(object.userData.exportRole) || !object.visible) return;
+                    hiddenObjects.push(object);
+                    object.visible = false;
+                });
+            }
+
+            try {
+                renderer.setPixelRatio(1);
+                renderer.setSize(EXPORT_WIDTH, EXPORT_HEIGHT, false);
+                renderer.setClearColor(0xffffff, transparent ? 0 : 1);
+                renderThreeBarSceneAtSize(EXPORT_WIDTH, EXPORT_HEIGHT);
+
+                const link = document.createElement('a');
+                if (transparent) {
+                    link.href = renderer.domElement.toDataURL('image/png');
+                    link.download = graphOnly ? 'graph-3d-transparent.png' : 'graph-3d.png';
+                } else {
+                    link.href = renderer.domElement.toDataURL('image/jpeg', 1.0);
+                    link.download = 'graph-chart-3d.jpeg';
+                }
+                link.click();
+                return true;
+            } catch (error) {
+                console.error('3D 이미지 저장에 실패했습니다.', error);
+                return false;
+            } finally {
+                hiddenObjects.forEach(object => { object.visible = true; });
+                renderer.setClearColor(originalClearColor, originalClearAlpha);
+                renderer.setPixelRatio(originalPixelRatio);
+                resizeThreeBarView();
+            }
+        }
+
         function downloadChartImage({ transparent = false, graphOnly = false } = {}) {
+            if (isThreeBarViewActive()) {
+                return downloadThreeBarImage({ transparent, graphOnly });
+            }
             if (!myChart || !myChart.canvas) return false;
             const exportResult = createExportChartCanvas({ transparent, graphOnly });
             if (!exportResult) return false;
@@ -1936,6 +2652,146 @@
                 chart_type: document.getElementById('chartType')?.value || 'unknown',
                 ...parameters
             });
+        }
+
+        function createSolidCanvas(width, height, color = '#fff') {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d');
+            context.fillStyle = color;
+            context.fillRect(0, 0, width, height);
+            return canvas;
+        }
+
+        function createLocalBackgroundCanvas(width, height) {
+            const image = document.getElementById('localImageOverlay');
+            if (!image?.src || image.classList.contains('hidden') || image.style.visibility === 'hidden') return null;
+
+            const imageWidth = image.naturalWidth || width;
+            const imageHeight = image.naturalHeight || height;
+            const scale = Math.min(width / imageWidth, height / imageHeight);
+            const drawWidth = imageWidth * scale;
+            const drawHeight = imageHeight * scale;
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext('2d').drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+            return canvas;
+        }
+
+        function composePsdCanvas(width, height, backgroundCanvas, graphCanvas) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d');
+            if (backgroundCanvas) context.drawImage(backgroundCanvas, 0, 0);
+            context.drawImage(graphCanvas, 0, 0);
+            return canvas;
+        }
+
+        function composePsdLayerCanvas(width, height, backgroundCanvas, graphCanvas, labelsCanvas, headerCanvas) {
+            const canvas = composePsdCanvas(width, height, backgroundCanvas, graphCanvas);
+            const context = canvas.getContext('2d');
+            context.drawImage(labelsCanvas, 0, 0);
+            context.drawImage(headerCanvas, 0, 0);
+            return canvas;
+        }
+
+        function downloadPsd(buffer) {
+            const blob = new Blob([buffer], { type: 'image/vnd.adobe.photoshop' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'graph-chart-layers.psd';
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function saveChartAsPsd() {
+            const button = document.getElementById('savePsdBtn');
+            if (!window.agPsd?.writePsd) {
+                alert('PSD 저장 기능을 준비하지 못했습니다. 인터넷 연결 후 다시 시도하세요.');
+                return;
+            }
+
+            const chartType = document.getElementById('chartType').value;
+            const parsedData = parseAllData(chartType);
+            const graphItemLayers = getPsdGraphItemLayers(chartType, parsedData.labels, parsedData.datasets);
+            const graphResult = createExportChartCanvas({ transparent: true, layer: 'graph' });
+            const labelsResult = createExportChartCanvas({ transparent: true, layer: 'labels' });
+            const headerResult = createExportChartCanvas({ transparent: true, layer: 'header' });
+            if (!graphResult || !labelsResult || !headerResult) return;
+
+            const structureResult = chartType === 'singleStackedBar'
+                ? createExportChartCanvas({ transparent: true, layer: 'structure' })
+                : null;
+            const graphItemResults = graphItemLayers.map(item => ({
+                ...item,
+                result: createExportChartCanvas({
+                    transparent: true,
+                    layer: 'graphItem',
+                    itemIndex: item.itemIndex,
+                    datasetIndex: item.datasetIndex
+                })
+            })).filter(item => item.result);
+
+            const originalLabel = button.innerText;
+            const exportCharts = [
+                graphResult.chart,
+                labelsResult.chart,
+                headerResult.chart,
+                ...(structureResult ? [structureResult.chart] : []),
+                ...graphItemResults.map(item => item.result.chart)
+            ];
+            button.disabled = true;
+            button.innerText = 'PSD 준비 중...';
+
+            try {
+                const graphCanvas = graphResult.canvas;
+                const labelsCanvas = labelsResult.canvas;
+                const headerCanvas = headerResult.canvas;
+                const width = graphCanvas.width;
+                const height = graphCanvas.height;
+                const localBackgroundCanvas = createLocalBackgroundCanvas(width, height);
+                const isCircularPsd = ['doughnut', 'halfDoughnut'].includes(chartType);
+                const separatedGraphChildren = isCircularPsd
+                    ? parsedData.datasets.map((dataset, datasetIndex) => ({
+                        name: `${datasetIndex + 1}. ${dataset.label || `데이터셋 ${datasetIndex + 1}`}`,
+                        opened: true,
+                        children: graphItemResults
+                            .filter(item => item.datasetIndex === datasetIndex)
+                            .map(item => ({ name: item.name, canvas: item.result.canvas }))
+                    }))
+                    : [
+                        ...(structureResult ? [{ name: '축 · 기준', canvas: structureResult.canvas }] : []),
+                        ...graphItemResults.map(item => ({ name: item.name, canvas: item.result.canvas }))
+                    ];
+                // ag-psd children are composited from the first entry upward.
+                const children = [
+                    ...(localBackgroundCanvas ? [{ name: '백이미지', canvas: localBackgroundCanvas }] : []),
+                    ...(graphItemResults.length > 0
+                        ? separatedGraphChildren
+                        : [{ name: '그래프', canvas: graphCanvas }]),
+                    { name: '수치', canvas: labelsCanvas },
+                    { name: '제목 · 인덱스', canvas: headerCanvas }
+                ];
+                const buffer = window.agPsd.writePsd({
+                    width,
+                    height,
+                    canvas: composePsdLayerCanvas(width, height, localBackgroundCanvas, graphCanvas, labelsCanvas, headerCanvas),
+                    children
+                }, { generateThumbnail: true });
+
+                downloadPsd(buffer);
+            } catch (error) {
+                console.error('PSD 저장에 실패했습니다.', error);
+                alert('PSD 저장에 실패했습니다. 콘솔 오류를 확인하세요.');
+            } finally {
+                exportCharts.forEach(chart => chart.destroy());
+                button.disabled = false;
+                button.innerText = originalLabel;
+            }
         }
 
         function saveChartAsImage() {
@@ -2061,6 +2917,9 @@
                     chartRange,
                     barWidthPercent,
                     barOrientation,
+                    bar3dEnabled: isBar3DEnabled,
+                    threeLightIntensityPercent,
+                    threeLightAngle,
                     lineStrokeWidth,
                     lineStrokeStyle,
                     linePointStyle,
@@ -2136,6 +2995,9 @@
             chartRange = { ...DEFAULT_CHART_RANGE, ...(settings.chartRange || {}) };
             barWidthPercent = Number(settings.barWidthPercent) || 70;
             barOrientation = settings.barOrientation === 'horizontal' ? 'horizontal' : 'vertical';
+            isBar3DEnabled = Boolean(settings.bar3dEnabled);
+            threeLightIntensityPercent = Number.isFinite(Number(settings.threeLightIntensityPercent)) ? Number(settings.threeLightIntensityPercent) : 100;
+            threeLightAngle = Number.isFinite(Number(settings.threeLightAngle)) ? Number(settings.threeLightAngle) : 45;
             lineStrokeWidth = Number(settings.lineStrokeWidth) || 10;
             lineStrokeStyle = settings.lineStrokeStyle === 'dashed' ? 'dashed' : 'solid';
             linePointStyle = ['circle', 'rect', 'none'].includes(settings.linePointStyle) ? settings.linePointStyle : 'circle';
@@ -2155,6 +3017,8 @@
             updateUIForChartType(state.chartType);
             document.getElementById('fillOpacitySlider').value = String(fillOpacityPercent);
             document.getElementById('fillOpacityValue').innerText = `${fillOpacityPercent}%`;
+            document.getElementById('threeLightIntensitySlider').value = String(threeLightIntensityPercent);
+            document.getElementById('threeLightAngleSlider').value = String(threeLightAngle);
             renderChartRangeEditor();
             updateAllTotals();
             createOrUpdateChart();
@@ -2479,6 +3343,7 @@
                 mask.style.width = `${Math.max(rect.width, 0)}%`;
                 mask.style.height = `${Math.max(rect.height, 0)}%`;
             });
+            updateThreeCameraInteractionState();
         }
 
         function scheduleChartRangeUpdate() {
@@ -2614,6 +3479,24 @@
             createOrUpdateChart();
             showUpdateNotice();
 
+            const layoutEditorPanel = document.getElementById('layoutEditorPanel');
+            layoutEditorPanel.addEventListener('pointerenter', () => setThreeCameraUiBlocked(true));
+            layoutEditorPanel.addEventListener('pointerleave', () => setThreeCameraUiBlocked(false));
+            layoutEditorPanel.addEventListener('pointerdown', event => event.stopPropagation());
+            layoutEditorPanel.addEventListener('wheel', event => event.stopPropagation(), { passive: true });
+            window.addEventListener('blur', () => {
+                isThreeCameraWindowActive = false;
+                updateThreeCameraInteractionState();
+            });
+            window.addEventListener('focus', () => {
+                isThreeCameraWindowActive = true;
+                updateThreeCameraInteractionState();
+            });
+            document.addEventListener('visibilitychange', () => {
+                isThreeCameraWindowActive = !document.hidden;
+                updateThreeCameraInteractionState();
+            });
+
             if (document.fonts?.load) {
                 document.fonts.load("16px 'MBC Chart'")
                     .then(() => createOrUpdateChart())
@@ -2624,7 +3507,7 @@
                 const chartType = e.target.value;
                 if (chartType === 'bar') barOrientation = 'vertical';
                 if (chartType === 'singleStackedBar') barOrientation = 'horizontal';
-                const isMultiSet = chartType === 'line' || chartType === 'singleStackedBar' || chartType === 'radar' || chartType === 'sankey'; 
+                const isMultiSet = chartType === 'bar' || chartType === 'doughnut' || chartType === 'line' || chartType === 'singleStackedBar' || chartType === 'radar' || chartType === 'sankey';
                 
                 document.getElementById('addDatasetBtn').classList.toggle('hidden', !isMultiSet);
                 const container = document.getElementById('additional-datasets-container');
@@ -2661,6 +3544,7 @@
             document.getElementById('addSankeyTransitionBtn').addEventListener('click', () => addSankeyTransitionRow({}, true));
             document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
             document.getElementById('saveTransparentChartBtn').addEventListener('click', saveGraphOnlyTransparentPng);
+            document.getElementById('savePsdBtn').addEventListener('click', saveChartAsPsd);
             document.getElementById('copyShareLinkBtn').addEventListener('click', copyShareLink);
             document.getElementById('confirmUpdateNoticeBtn').addEventListener('click', dismissUpdateNotice);
             document.getElementById('dismissUpdateNoticeBtn').addEventListener('click', dismissUpdateNotice);
@@ -2702,6 +3586,21 @@
                 barOrientation = barOrientation === 'horizontal' ? 'vertical' : 'horizontal';
                 updateUIForChartType(document.getElementById('chartType').value);
                 createOrUpdateChart();
+            });
+            document.getElementById('toggleBar3dBtn').addEventListener('click', () => {
+                if (document.getElementById('chartType').value !== 'bar') return;
+                isBar3DEnabled = !isBar3DEnabled;
+                updateUIForChartType(document.getElementById('chartType').value);
+                renderChartRangeEditor();
+                createOrUpdateChart();
+            });
+            document.getElementById('threeLightIntensitySlider').addEventListener('input', (event) => {
+                threeLightIntensityPercent = Number(event.target.value);
+                updateThreeLighting();
+            });
+            document.getElementById('threeLightAngleSlider').addEventListener('input', (event) => {
+                threeLightAngle = Number(event.target.value);
+                updateThreeLighting();
             });
             document.getElementById('resetChartRangeBtn').addEventListener('click', resetChartRange);
             document.getElementById('chartRangeBox').addEventListener('pointerdown', startChartRangeInteraction);
