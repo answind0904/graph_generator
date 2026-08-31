@@ -2473,6 +2473,46 @@
             });
         }
 
+        function clipStackedBarItemCanvas(sourceCanvas, chart, itemIndex) {
+            const meta = chart.getDatasetMeta(itemIndex);
+            if (!meta?.data?.length) return sourceCanvas;
+
+            const clippedCanvas = document.createElement('canvas');
+            clippedCanvas.width = sourceCanvas.width;
+            clippedCanvas.height = sourceCanvas.height;
+            const context = clippedCanvas.getContext('2d');
+            const scaleX = sourceCanvas.width / chart.width;
+            const scaleY = sourceCanvas.height / chart.height;
+            const isHorizontal = chart.options.indexAxis === 'y';
+
+            context.save();
+            context.beginPath();
+            meta.data.forEach(element => {
+                const props = element.getProps
+                    ? element.getProps(['x', 'y', 'base', 'width', 'height'], true)
+                    : element;
+                if (![props.x, props.y, props.base, props.width, props.height].every(Number.isFinite)) return;
+
+                if (isHorizontal) {
+                    const left = Math.round(Math.min(props.base, props.x) * scaleX);
+                    const right = Math.round(Math.max(props.base, props.x) * scaleX);
+                    const top = Math.floor((props.y - props.height / 2) * scaleY);
+                    const bottom = Math.ceil((props.y + props.height / 2) * scaleY);
+                    context.rect(left, top, Math.max(right - left, 0), Math.max(bottom - top, 0));
+                } else {
+                    const left = Math.floor((props.x - props.width / 2) * scaleX);
+                    const right = Math.ceil((props.x + props.width / 2) * scaleX);
+                    const top = Math.round(Math.min(props.base, props.y) * scaleY);
+                    const bottom = Math.round(Math.max(props.base, props.y) * scaleY);
+                    context.rect(left, top, Math.max(right - left, 0), Math.max(bottom - top, 0));
+                }
+            });
+            context.clip();
+            context.drawImage(sourceCanvas, 0, 0);
+            context.restore();
+            return clippedCanvas;
+        }
+
         function createExportChartCanvas({ transparent = false, graphOnly = false, layer = 'combined', itemIndex = null, datasetIndex = null } = {}) {
             const chartType = document.getElementById('chartType').value;
             const { labels, datasets: sourceDatasets, totalSum } = parseAllData(chartType);
@@ -2567,14 +2607,16 @@
                     plugins: [squareBottomAlignPlugin, parallelDoughnutPlugin, ChartDataLabels, exportBackgroundPlugin, ...layerPlugins]
                 });
                 exportChart.update('none');
-                if (renderCanvas.width === EXPORT_WIDTH && renderCanvas.height === EXPORT_HEIGHT) {
-                    return { canvas: renderCanvas, chart: exportChart };
+                let outputCanvas = renderCanvas;
+                if (renderCanvas.width !== EXPORT_WIDTH || renderCanvas.height !== EXPORT_HEIGHT) {
+                    outputCanvas = document.createElement('canvas');
+                    outputCanvas.width = EXPORT_WIDTH;
+                    outputCanvas.height = EXPORT_HEIGHT;
+                    outputCanvas.getContext('2d').drawImage(renderCanvas, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
                 }
-
-                const outputCanvas = document.createElement('canvas');
-                outputCanvas.width = EXPORT_WIDTH;
-                outputCanvas.height = EXPORT_HEIGHT;
-                outputCanvas.getContext('2d').drawImage(renderCanvas, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+                if (layer === 'graphItem' && chartType === 'singleStackedBar') {
+                    outputCanvas = clipStackedBarItemCanvas(outputCanvas, exportChart, itemIndex);
+                }
                 return { canvas: outputCanvas, chart: exportChart };
             } finally {
                 isGraphOnlyMode = originalGraphOnlyMode;
