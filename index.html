@@ -2521,6 +2521,7 @@
                 if (layer === 'graph') {
                     makeChartHeaderTransparent(options);
                     options.plugins.datalabels.display = false;
+                    makeScalesTransparent(options);
                 } else if (layer === 'graphItem') {
                     makeChartHeaderTransparent(options);
                     options.plugins.datalabels.display = false;
@@ -2680,22 +2681,26 @@
             return canvas;
         }
 
-        function composePsdCanvas(width, height, backgroundCanvas, graphCanvas) {
+        function composePsdCanvas(width, height, backgroundCanvas, ...layerCanvases) {
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const context = canvas.getContext('2d');
             if (backgroundCanvas) context.drawImage(backgroundCanvas, 0, 0);
-            context.drawImage(graphCanvas, 0, 0);
+            layerCanvases.filter(Boolean).forEach(layerCanvas => context.drawImage(layerCanvas, 0, 0));
             return canvas;
         }
 
-        function composePsdLayerCanvas(width, height, backgroundCanvas, graphCanvas, labelsCanvas, headerCanvas) {
-            const canvas = composePsdCanvas(width, height, backgroundCanvas, graphCanvas);
-            const context = canvas.getContext('2d');
-            context.drawImage(labelsCanvas, 0, 0);
-            context.drawImage(headerCanvas, 0, 0);
-            return canvas;
+        function composePsdLayerCanvas(width, height, backgroundCanvas, structureCanvas, graphCanvas, labelsCanvas, headerCanvas) {
+            return composePsdCanvas(
+                width,
+                height,
+                backgroundCanvas,
+                structureCanvas,
+                graphCanvas,
+                labelsCanvas,
+                headerCanvas
+            );
         }
 
         function downloadPsd(buffer) {
@@ -2723,7 +2728,7 @@
             const headerResult = createExportChartCanvas({ transparent: true, layer: 'header' });
             if (!graphResult || !labelsResult || !headerResult) return;
 
-            const structureResult = chartType === 'singleStackedBar'
+            const structureResult = ['bar', 'line', 'singleStackedBar', 'polarArea', 'radar'].includes(chartType)
                 ? createExportChartCanvas({ transparent: true, layer: 'structure' })
                 : null;
             const graphItemResults = graphItemLayers.map(item => ({
@@ -2764,22 +2769,30 @@
                             .map(item => ({ name: item.name, canvas: item.result.canvas }))
                     }))
                     : [
-                        ...(structureResult ? [{ name: '축 · 기준', canvas: structureResult.canvas }] : []),
-                        ...graphItemResults.map(item => ({ name: item.name, canvas: item.result.canvas }))
+                        ...(structureResult ? [{ name: '축 · 가이드', canvas: structureResult.canvas }] : []),
+                        ...(graphItemResults.length > 0
+                            ? graphItemResults.map(item => ({ name: item.name, canvas: item.result.canvas }))
+                            : [{ name: '그래프', canvas: graphCanvas }])
                     ];
                 // ag-psd children are composited from the first entry upward.
                 const children = [
                     ...(localBackgroundCanvas ? [{ name: '백이미지', canvas: localBackgroundCanvas }] : []),
-                    ...(graphItemResults.length > 0
-                        ? separatedGraphChildren
-                        : [{ name: '그래프', canvas: graphCanvas }]),
+                    ...separatedGraphChildren,
                     { name: '수치', canvas: labelsCanvas },
                     { name: '제목 · 인덱스', canvas: headerCanvas }
                 ];
                 const buffer = window.agPsd.writePsd({
                     width,
                     height,
-                    canvas: composePsdLayerCanvas(width, height, localBackgroundCanvas, graphCanvas, labelsCanvas, headerCanvas),
+                    canvas: composePsdLayerCanvas(
+                        width,
+                        height,
+                        localBackgroundCanvas,
+                        structureResult?.canvas || null,
+                        graphCanvas,
+                        labelsCanvas,
+                        headerCanvas
+                    ),
                     children
                 }, { generateThumbnail: true });
 
