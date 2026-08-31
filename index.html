@@ -592,7 +592,8 @@
         let lineStrokeWidth = 10;
         let lineStrokeStyle = 'solid';
         let linePointStyle = 'circle';
-        let fillOpacityPercent = 100;
+        const DEFAULT_FILL_OPACITY_PERCENT = 100;
+        let fillOpacityPercent = DEFAULT_FILL_OPACITY_PERCENT;
         let yAxisStartMode = 'zero';
         const UPDATE_NOTICE_VERSION = '2026-08-13-new-modal';
         const EXPORT_WIDTH = 1920;
@@ -2876,6 +2877,13 @@
             }
         }
 
+        function syncFillOpacityControl() {
+            const slider = document.getElementById('fillOpacitySlider');
+            const value = document.getElementById('fillOpacityValue');
+            if (slider) slider.value = String(fillOpacityPercent);
+            if (value) value.innerText = `${fillOpacityPercent}%`;
+        }
+
         function encodeShareState(state) {
             const utf8Bytes = new TextEncoder().encode(JSON.stringify(state));
             let binary = '';
@@ -3014,7 +3022,9 @@
             lineStrokeWidth = Number(settings.lineStrokeWidth) || 10;
             lineStrokeStyle = settings.lineStrokeStyle === 'dashed' ? 'dashed' : 'solid';
             linePointStyle = ['circle', 'rect', 'none'].includes(settings.linePointStyle) ? settings.linePointStyle : 'circle';
-            fillOpacityPercent = Number.isFinite(Number(settings.fillOpacityPercent)) ? Number(settings.fillOpacityPercent) : 100;
+            fillOpacityPercent = Number.isFinite(Number(settings.fillOpacityPercent))
+                ? Math.min(100, Math.max(0, Number(settings.fillOpacityPercent)))
+                : DEFAULT_FILL_OPACITY_PERCENT;
             yAxisStartMode = settings.yAxisStartMode === 'optimized' ? 'optimized' : 'zero';
 
             if (state.chartType === 'sankey') {
@@ -3028,8 +3038,7 @@
             updateGraphOnlyButtonState();
             updateYAxisStartButtons();
             updateUIForChartType(state.chartType);
-            document.getElementById('fillOpacitySlider').value = String(fillOpacityPercent);
-            document.getElementById('fillOpacityValue').innerText = `${fillOpacityPercent}%`;
+            syncFillOpacityControl();
             document.getElementById('threeLightIntensitySlider').value = String(threeLightIntensityPercent);
             document.getElementById('threeLightAngleSlider').value = String(threeLightAngle);
             renderChartRangeEditor();
@@ -3483,6 +3492,8 @@
         }
         
         window.onload = () => {
+            fillOpacityPercent = DEFAULT_FILL_OPACITY_PERCENT;
+            syncFillOpacityControl();
             setupInitialFields();
             updateScreenGuide();
             renderLayoutEditor();
@@ -3640,8 +3651,8 @@
                 createOrUpdateChart();
             });
             document.getElementById('fillOpacitySlider').addEventListener('input', (event) => {
-                fillOpacityPercent = Number(event.target.value);
-                document.getElementById('fillOpacityValue').innerText = `${fillOpacityPercent}%`;
+                fillOpacityPercent = Math.min(100, Math.max(0, Number(event.target.value)));
+                syncFillOpacityControl();
                 createOrUpdateChart();
             });
             document.getElementById('yAxisStartControl').addEventListener('click', (event) => {
