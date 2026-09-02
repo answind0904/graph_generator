@@ -26,7 +26,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <!-- PSD 레이어 파일 생성 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/ag-psd@29.0.0/dist/bundle.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css">
     <style>
         @font-face {
             font-family: 'MBC Chart';
@@ -39,24 +39,257 @@
             font-display: block;
         }
 
-        /* 입력 UI는 기존 Inter 폰트를 유지 */
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        /* 추가 데이터셋의 라벨 스타일 */
-        .synced-label {
-            width: 40%; /* 2/5 width */
-            padding-left: 0.5rem; /* px-2 */
-            padding-right: 0.5rem; /* px-2 */
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: #4A5568; /* gray-700 */
+        :root {
+            --ui-ink: #1f1633;
+            --ui-primary: #150f23;
+            --ui-violet: #6a5fc1;
+            --ui-violet-soft: #f2effb;
+            --ui-border: #cfcfdb;
+            --ui-divider: #e5e7eb;
+        }
+        .data-control-panel {
+            color: var(--ui-ink);
+            border: 1px solid var(--ui-divider);
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(21, 15, 35, 0.08), 0 4px 6px -4px rgba(21, 15, 35, 0.08);
+        }
+        .data-control-panel input[type="text"],
+        .data-control-panel input[type="number"],
+        .data-control-panel select {
+            border-color: var(--ui-border);
+            border-radius: 6px;
+            box-shadow: none;
+        }
+        .data-control-panel input[type="text"]:focus,
+        .data-control-panel input[type="number"]:focus,
+        .data-control-panel select:focus {
+            border-color: var(--ui-violet);
+            box-shadow: 0 0 0 3px rgba(106, 95, 193, 0.16);
+        }
+        .dataset-header-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 40px 32px;
+            gap: 8px;
+            align-items: end;
+        }
+        .data-toolbar-grid,
+        .data-entry-grid {
+            display: grid;
+            grid-template-columns: 24px 24px minmax(0, 1fr) 96px 28px;
+            column-gap: 6px;
+            align-items: center;
+        }
+        .data-toolbar-actions {
+            grid-column: 3 / 6;
+        }
+        .bulk-data-toolbar {
+            position: relative;
+            padding-top: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e6e0f8;
+            border-radius: 6px 6px 0 0;
+            background: #f8f7fc;
+        }
+        #bulkRowColorBtn {
+            overflow: visible;
+        }
+        #bulkRowColorBtn::after {
+            content: "";
+            position: absolute;
+            top: calc(100% + 3px);
+            left: 50%;
+            width: 1px;
+            height: 21px;
+            background: #cfc6e7;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        #bulkRowColorIndicator {
+            box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(106, 95, 193, 0.72);
+        }
+        .data-row {
+            min-height: 38px;
+        }
+        .data-row .drag-handle {
+            grid-column: 1;
+        }
+        .data-row .row-color-wrapper {
+            grid-column: 2;
+            width: 24px;
+            height: 24px;
+        }
+        .data-row .item-label-input {
+            grid-column: 3;
+            width: 100%;
+        }
+        .data-row .item-value-input {
+            grid-column: 4;
+            width: 100%;
+        }
+        .data-row .row-remove-button {
+            grid-column: 5;
+        }
+        .dataset-data-row .drag-handle {
+            grid-column: 1;
+            cursor: grab;
+        }
+        .dataset-data-row .drag-handle:active {
+            cursor: grabbing;
+        }
+        .dataset-data-row .row-color-wrapper {
+            grid-column: 2;
+            width: 24px;
+            height: 24px;
+        }
+        .dataset-data-row .dataset-item-label-input {
+            grid-column: 3;
+            width: 100%;
+            min-width: 0;
+        }
+        .dataset-data-row .dataset-value {
+            grid-column: 4;
+            width: 100%;
+            text-align: right;
+        }
+        .dataset-data-row .dataset-row-remove-button {
+            grid-column: 5;
+            cursor: default;
+            opacity: 0.58;
+        }
+        .additional-dataset-block {
+            border-top: 1px solid var(--ui-divider);
+            padding-top: 16px;
+        }
+        .dataset-total-display,
+        #data-sum-display {
+            color: var(--ui-ink);
+            font-size: 0.875rem;
+        }
+        .secondary-ui-button {
+            border-radius: 6px;
+            background: var(--ui-violet-soft);
+            color: #422082;
+        }
+        .secondary-ui-button:hover {
+            background: #e6e0f8;
+        }
+        .secondary-ui-button.item-names-hidden-state {
+            background: var(--ui-primary);
+            color: #fff;
+        }
+        .secondary-ui-button.item-names-hidden-state:hover {
+            background: #2a2040;
+        }
+        .primary-ui-button {
+            border-radius: 8px;
+            background: var(--ui-primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(21, 15, 35, 0.12);
+        }
+        .primary-ui-button:hover {
+            background: #2a2040;
+        }
+        .chart-action-button {
+            min-height: 44px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+        }
+        .chart-action-secondary {
+            border: 1px solid var(--ui-border);
+            background: #f0f0f0;
+            color: var(--ui-ink);
+            box-shadow: none;
+        }
+        .chart-action-secondary:hover {
+            background: #e5e5e5;
+            border-color: #b8b5c2;
+        }
+        .chart-action-secondary.chart-action-active {
+            border-color: var(--ui-primary);
+            background: var(--ui-primary);
+            color: #fff;
+        }
+        .chart-action-format {
+            border: 1px solid #cfc6e7;
+            background: var(--ui-violet-soft);
+            color: #422082;
+            box-shadow: none;
+        }
+        .chart-action-format:hover {
+            border-color: var(--ui-violet);
+            background: #e6e0f8;
+        }
+        .chart-action-primary {
+            border: 1px solid var(--ui-primary);
+            background: var(--ui-primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(21, 15, 35, 0.12);
+        }
+        .chart-action-primary:hover {
+            background: #2a2040;
+        }
+        .chart-action-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            background: #fff;
+            color: #422082;
+            box-shadow: none;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+        }
+        .chart-action-icon:hover {
+            border-color: var(--ui-violet);
+            background: var(--ui-violet-soft);
+        }
+        .chart-action-icon.is-shared,
+        .chart-action-icon.is-shared:hover {
+            border-color: #422082;
+            background: #422082;
+            color: #fff;
+        }
+        .share-copy-toast {
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 8px);
+            z-index: 20;
+            width: max-content;
+            max-width: min(280px, calc(100vw - 32px));
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #21183a;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.3;
+            box-shadow: 0 6px 16px rgba(21, 15, 35, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, 4px);
+            transition: opacity 160ms ease, transform 160ms ease;
+        }
+        .share-copy-toast.is-visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+        .slider-control.suppress-popover-hover .slider-popover {
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none;
         }
         /* 탭 활성화 스타일 */
         .tab-active {
-            border-bottom: 2px solid #2563EB;
-            color: #2563EB;
+            border-bottom: 2px solid var(--ui-violet);
+            color: #422082;
             font-weight: 700;
         }
         .tab-inactive {
@@ -131,9 +364,27 @@
         .hide-item-names .item-label-input {
             display: none !important;
         }
+        .hide-item-names .dataset-item-label-input {
+            display: none !important;
+        }
         .hide-item-names .item-value-input {
-            flex: 1 1 auto;
-            width: auto;
+            grid-column: 3;
+            width: 100%;
+        }
+        .hide-item-names .data-row {
+            grid-template-columns: 24px 24px minmax(0, 1fr) 28px;
+        }
+        .hide-item-names .row-remove-button {
+            grid-column: 4;
+        }
+        .hide-item-names .dataset-data-row {
+            grid-template-columns: 24px 24px minmax(0, 1fr) 28px;
+        }
+        .hide-item-names .dataset-data-row .dataset-value {
+            grid-column: 3;
+        }
+        .hide-item-names .dataset-row-remove-button {
+            grid-column: 4;
         }
         .update-notice-feature-icon {
             background: #f0ebff;
@@ -195,11 +446,11 @@
     <div id="graph-section" class="w-full max-w-[1440px] mx-auto grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-3">
         
         <!-- 왼쪽: 입력 컨트롤 패널 -->
-        <div class="self-start lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
+        <div class="data-control-panel self-start lg:col-span-1 bg-white p-5">
             <!-- 그래프 종류 선택 -->
             <div class="mb-5">
                 <label for="chartType" class="block text-sm font-medium text-gray-700 mb-2">그래프 종류</label>
-                <select id="chartType" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                <select id="chartType" class="w-full px-3 py-2 border border-gray-300 focus:outline-none transition">
                     <option value="bar">막대 그래프</option>
                     <option value="singleStackedBar">100% 비율 막대 (비교형)</option>
                     <option value="line">선 그래프</option>
@@ -212,40 +463,39 @@
                 </select>
             </div>
 
-            <hr class="my-6">
+            <hr class="my-5 border-gray-200">
 
             <!-- 데이터셋 이름 및 전체 컬러 입력 (선/레이더용) -->
-            <div class="mb-4 flex gap-2 items-end">
+            <div class="dataset-header-grid mb-4">
                 <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">데이터셋 이름</label>
-                    <input type="text" id="mainDatasetName" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" value="데이터셋 1">
+                    <input type="text" id="mainDatasetName" aria-label="데이터셋 이름" class="w-full px-3 py-2 border border-gray-300 focus:outline-none text-sm" value="데이터셋 1">
                 </div>
                 <!-- 데이터셋 전체 컬러 선택기 (선/레이더 차트일 때만 표시됨) -->
-                <div id="mainDatasetColorContainer" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">색상</label>
+                <div id="mainDatasetColorContainer" class="dataset-color-container hidden">
                     <div class="relative h-[38px] w-[40px]">
-                        <input type="color" id="mainDatasetColor" class="absolute inset-0 w-full h-full p-0 border-0 rounded cursor-pointer" value="#3B82F6">
+                        <input type="color" id="mainDatasetColor" aria-label="데이터셋 색상" class="absolute inset-0 w-full h-full p-0 border-0 rounded cursor-pointer" value="#3B82F6">
                     </div>
                 </div>
+                <div class="h-[38px] w-8" aria-hidden="true"></div>
             </div>
 
             <!-- 동적 데이터 입력 폼 -->
-            <div class="mb-2 flex items-center gap-1.5 px-1">
-                <div class="w-6 flex-shrink-0"></div>
-                <button id="bulkRowColorBtn" type="button" title="전체 항목 색상 변경" class="relative flex h-[30px] w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-300">
-                        <span id="bulkRowColorIndicator" class="h-4 w-4 rounded-full bg-blue-500 shadow-sm ring-1 ring-white"></span>
+            <div class="data-toolbar-grid bulk-data-toolbar mb-2 px-1">
+                <div aria-hidden="true"></div>
+                <button id="bulkRowColorBtn" type="button" title="전체 항목 색상 변경" class="relative flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full transition duration-300">
+                        <span id="bulkRowColorIndicator" class="color-indicator h-6 w-6 rounded-full bg-blue-500"></span>
                         <input type="color" id="bulkRowColorInput" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value="#3B82F6" aria-label="전체 항목 색상 변경">
                     </button>
-                <div class="ml-auto flex items-center gap-2">
-                    <button id="toggleItemNamesBtn" type="button" aria-pressed="false" title="항목명 숨기기" class="flex items-center gap-1.5 bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-md hover:bg-gray-300 transition duration-300 text-xs">
+                <div class="data-toolbar-actions ml-auto flex items-center justify-end gap-1.5">
+                    <button id="toggleItemNamesBtn" type="button" aria-pressed="false" title="항목명 숨기기" class="secondary-ui-button flex items-center gap-1.5 font-bold py-1.5 px-2.5 transition duration-300 text-xs">
                         <span>항목명</span>
                         <svg class="item-name-visible-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                         <svg class="item-name-hidden-icon hidden" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 4.2A10.5 10.5 0 0 1 12 4c6.5 0 10 8 10 8a18.3 18.3 0 0 1-3 4.1"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 8 10 8a9.8 9.8 0 0 0 4-.8"/></svg>
                     </button>
-                    <button id="addFieldBtn" class="bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-md hover:bg-gray-300 transition duration-300 text-xs">
+                    <button id="addFieldBtn" class="secondary-ui-button font-bold py-1.5 px-2.5 transition duration-300 text-xs">
                         + 항목
                     </button>
-                    <button id="addDatasetBtn" class="hidden bg-indigo-100 text-indigo-700 font-bold py-1.5 px-3 rounded-md hover:bg-indigo-200 transition duration-300 text-xs">
+                    <button id="addDatasetBtn" class="secondary-ui-button hidden font-bold py-1.5 px-2.5 transition duration-300 text-xs">
                         + 데이터셋
                     </button>
                 </div>
@@ -255,7 +505,7 @@
             </div>
             
             <!-- 합계 표시 영역 -->
-            <div class="text-right font-bold text-lg text-gray-800 mb-4" id="data-sum-display">
+            <div class="text-right font-bold text-gray-800 mb-4" id="data-sum-display">
                 합계: 0
             </div>
 
@@ -281,7 +531,7 @@
             </div>
 
             <!-- 그래프 생성 버튼 -->
-            <button onclick="createOrUpdateChart()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md">
+            <button onclick="applyChartUpdate()" class="chart-action-button chart-action-secondary w-full px-6 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-300">
                 그래프 수동 업데이트
             </button>
         </div>
@@ -373,26 +623,26 @@
                     </button>
                     <div id="bar3dTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">3D 뷰 켜기 (실험)</div>
                 </div>
-                <div id="threeLightingControl" class="group relative hidden w-full">
+                <div id="threeLightingControl" class="slider-control group relative hidden w-full">
                     <button type="button" aria-label="3D 조명" class="flex h-8 w-full items-center justify-center rounded-md bg-amber-50 text-amber-600 transition hover:bg-amber-100">
                         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5C14.6 15.1 14 16 14 17h-4c0-1-.6-1.9-1.5-2.5Z"/></svg>
                     </button>
-                    <div class="invisible absolute right-full top-1/2 z-50 w-[170px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                    <div class="slider-popover invisible absolute right-full top-1/2 z-50 w-[170px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
                         <div class="w-40 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
-                            <label for="threeLightIntensitySlider" class="mb-1 block text-[10px] font-bold text-gray-700">조명 세기</label>
+                            <label for="threeLightIntensitySlider" class="mb-1 flex items-center justify-between text-[10px] font-bold text-gray-700"><span>조명 세기</span><span id="threeLightIntensityValue">100%</span></label>
                             <input id="threeLightIntensitySlider" type="range" min="20" max="200" step="5" value="100" class="mb-2 w-full accent-amber-500" aria-label="3D 조명 세기">
-                            <label for="threeLightAngleSlider" class="mb-1 block text-[10px] font-bold text-gray-700">조명 방향</label>
+                            <label for="threeLightAngleSlider" class="mb-1 flex items-center justify-between text-[10px] font-bold text-gray-700"><span>조명 방향</span><span id="threeLightAngleValue">45deg</span></label>
                             <input id="threeLightAngleSlider" type="range" min="-180" max="180" step="5" value="45" class="w-full accent-amber-500" aria-label="3D 조명 방향">
                         </div>
                     </div>
                 </div>
-                <div id="barWidthControl" class="group relative w-full">
+                <div id="barWidthControl" class="slider-control group relative w-full">
                     <button id="toggleLineDashBtn" type="button" aria-pressed="false" aria-label="막대 폭" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
                         <span class="bar-width-icon flex items-end gap-[2px] pb-1.5"><span class="block h-3 w-1.5 bg-current"></span><span class="block h-5 w-1.5 bg-current"></span><span class="block h-4 w-1.5 bg-current"></span></span>
                         <svg class="line-stroke-solid-icon hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M4 12h16"/></svg>
                         <svg class="line-stroke-dashed-icon hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 12h16"/></svg>
                     </button>
-                    <div class="invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                    <div class="slider-popover invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
                         <div class="w-36 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
                             <label id="widthControlLabel" for="barWidthSlider" class="mb-1 block text-center text-[10px] font-bold text-gray-700">막대 폭</label>
                             <input id="barWidthSlider" type="range" min="20" max="100" step="5" value="70" class="w-full accent-blue-600" aria-label="전체 막대 폭">
@@ -407,17 +657,34 @@
                     </button>
                     <div id="linePointStyleTooltip" class="pointer-events-none invisible absolute right-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">포인트: 원형</div>
                 </div>
-                <div id="fillOpacityControl" class="group relative w-full">
-                    <button type="button" aria-label="채움 오파시티" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
+                <div id="lineAreaFillControl" class="slider-control group relative hidden w-full">
+                    <button id="toggleLineAreaFillBtn" type="button" aria-pressed="false" aria-label="하단 채우기 켜기" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16"/><path d="m4 15 4-5 4 3 4-7 4 5v7H4Z" fill="currentColor" opacity="0.24"/><path d="m4 15 4-5 4 3 4-7 4 5"/></svg>
+                    </button>
+                    <div id="lineAreaFillTooltip" class="slider-popover invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                        <div class="w-36 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
+                            <span id="lineAreaFillStatus" class="block text-center text-[10px] font-bold text-gray-700">하단 채우기 켜기</span>
+                            <div id="lineAreaFillOpacityRow" class="mt-2 hidden">
+                                <div class="mb-1 flex items-center justify-between text-[10px] font-bold text-gray-700">
+                                    <label for="lineAreaFillOpacitySlider">영역 오파시티</label>
+                                    <span id="lineAreaFillOpacityValue">18%</span>
+                                </div>
+                                <input id="lineAreaFillOpacitySlider" type="range" min="0" max="100" step="5" value="18" class="w-full accent-blue-600" aria-label="하단 채우기 오파시티">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="fillOpacityControl" class="slider-control group relative w-full">
+                    <button id="fillOpacityButton" type="button" aria-label="채움 오파시티" class="flex h-8 w-full items-center justify-center rounded-md bg-gray-100 text-gray-600 transition hover:bg-gray-200">
                         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M4 4h8v8H4zM12 12h8v8h-8z" opacity="0.85"/>
                             <path d="M12 4h8v8h-8zM4 12h8v8H4z" opacity="0.28"/>
                         </svg>
                     </button>
-                    <div class="invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
+                    <div class="slider-popover invisible absolute right-full top-1/2 z-50 w-[152px] -translate-y-1/2 pr-2 opacity-0 transition group-hover:visible group-hover:opacity-100">
                         <div class="w-36 rounded-md bg-white p-2 shadow-xl ring-1 ring-gray-200">
                             <div class="mb-1 flex items-center justify-between text-[10px] font-bold text-gray-700">
-                                <label for="fillOpacitySlider">채움 오파시티</label>
+                                <label id="fillOpacityLabel" for="fillOpacitySlider">채움 오파시티</label>
                                 <span id="fillOpacityValue">100%</span>
                             </div>
                             <input id="fillOpacitySlider" type="range" min="0" max="100" step="5" value="100" class="w-full accent-blue-600" aria-label="전체 채움 오파시티">
@@ -443,23 +710,26 @@
             </div>
             <div class="flex flex-col gap-2">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button id="copyShareLinkBtn" type="button" title="현재 데이터 공유 링크 복사" aria-label="현재 데이터 공유 링크 복사" class="h-[44px] w-[44px] flex-shrink-0 self-start rounded-lg bg-blue-600 text-white shadow-md transition duration-300 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                    <svg class="mx-auto" xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="m8 12 8 0"/></svg>
-                </button>
+                <div class="relative flex-shrink-0 self-start">
+                    <button id="copyShareLinkBtn" type="button" title="현재 데이터 공유 링크 복사" aria-label="현재 데이터 공유 링크 복사" aria-pressed="false" class="chart-action-icon focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2">
+                        <svg class="mx-auto" xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.5 3h11v2.7H5.2v12.9h12.9v-5.2h2.7v7.9H2.5V3Z"/><path d="M6.1 15.5c.8-4.9 3.7-7.7 8.6-7.7h1.1V4.1l5.7 4.5-5.7 4.5V10.5h-1.2c-3.4 0-5.6 1.4-7.1 5.3l-1.4-.3Z"/></svg>
+                    </button>
+                    <div id="shareCopyToast" class="share-copy-toast" role="status" aria-live="polite">링크가 클립보드에 복사되었습니다.</div>
+                </div>
                 <div class="flex flex-col gap-2 sm:ml-auto sm:flex-row">
-                <button id="graphOnlyBtn" class="w-full sm:w-auto bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400 transition duration-300 text-sm shadow-md">
+                <button id="graphOnlyBtn" class="chart-action-button chart-action-secondary w-full sm:w-auto px-6">
                     그래프만 보기
                 </button>
-                <button id="toggleLabelBtn" class="w-full sm:w-auto bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400 transition duration-300 text-sm shadow-md">
+                <button id="toggleLabelBtn" class="chart-action-button chart-action-secondary w-full sm:w-auto px-6">
                     수치 숨기기
                 </button>
-                <button id="saveTransparentChartBtn" class="w-full sm:w-auto bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition duration-300 text-sm shadow-md">
+                <button id="saveTransparentChartBtn" class="chart-action-button chart-action-format w-full sm:w-auto px-6">
                     투명 PNG 저장
                 </button>
-                <button id="savePsdBtn" class="w-full sm:w-auto bg-violet-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-violet-700 transition duration-300 text-sm shadow-md">
+                <button id="savePsdBtn" class="chart-action-button chart-action-format w-full sm:w-auto px-6">
                     PSD 저장
                 </button>
-                <button id="saveChartBtn" class="w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-300 text-sm shadow-md">
+                <button id="saveChartBtn" class="chart-action-button chart-action-format w-full sm:w-auto px-6">
                     이미지 저장
                 </button>
                 </div>
@@ -562,8 +832,8 @@
 
         // --- 그래프 생성기 로직 ---
         Chart.register(ChartDataLabels);
-        const UI_FONT_FAMILY = "'Inter', sans-serif";
-        const CHART_FONT_FAMILY = "'MBC Chart', 'Inter', sans-serif";
+        const UI_FONT_FAMILY = "'Pretendard Variable', 'Pretendard', sans-serif";
+        const CHART_FONT_FAMILY = UI_FONT_FAMILY;
         Chart.defaults.font.family = CHART_FONT_FAMILY;
 
         let myChart = null;
@@ -592,9 +862,13 @@
         let lineStrokeWidth = 10;
         let lineStrokeStyle = 'solid';
         let linePointStyle = 'circle';
+        let isLineAreaFillEnabled = false;
+        const DEFAULT_LINE_AREA_FILL_OPACITY_PERCENT = 18;
+        let lineAreaFillOpacityPercent = DEFAULT_LINE_AREA_FILL_OPACITY_PERCENT;
         const DEFAULT_FILL_OPACITY_PERCENT = 100;
         let fillOpacityPercent = DEFAULT_FILL_OPACITY_PERCENT;
         let yAxisStartMode = 'zero';
+        let shareCopyToastTimer = null;
         const UPDATE_NOTICE_VERSION = '2026-08-13-new-modal';
         const EXPORT_WIDTH = 1920;
         const EXPORT_HEIGHT = 1080;
@@ -840,16 +1114,31 @@
 
         function updateThreeLighting() {
             if (!threeBarState) return;
-            const intensity = threeLightIntensityPercent / 100;
+            const intensity = Math.min(Math.max(threeLightIntensityPercent / 100, 0.2), 2);
             const angle = THREE.MathUtils.degToRad(threeLightAngle);
             const { keyLight, fillLight, hemisphereLight } = threeBarState;
             if (keyLight) {
-                keyLight.intensity = 2.7 * intensity;
-                keyLight.position.set(Math.cos(angle) * 10, 11, Math.sin(angle) * 10);
+                keyLight.intensity = 3 * intensity;
+                keyLight.position.set(Math.cos(angle) * 11, 8, Math.sin(angle) * 11);
+                keyLight.target.position.set(0, threeBarState.isHorizontal ? 0 : 2.5, 0);
+                keyLight.target.updateMatrixWorld();
+                keyLight.shadow.needsUpdate = true;
             }
-            if (fillLight) fillLight.intensity = 1.2 * intensity;
-            if (hemisphereLight) hemisphereLight.intensity = 1.65 * intensity;
+            if (fillLight) fillLight.intensity = 0.45 * intensity;
+            if (hemisphereLight) hemisphereLight.intensity = 0.7 * intensity;
             renderThreeBarSceneFrame();
+        }
+
+        function syncThreeLightingControls() {
+            const intensitySlider = document.getElementById('threeLightIntensitySlider');
+            const angleSlider = document.getElementById('threeLightAngleSlider');
+            const intensityValue = document.getElementById('threeLightIntensityValue');
+            const angleValue = document.getElementById('threeLightAngleValue');
+
+            if (intensitySlider) intensitySlider.value = String(threeLightIntensityPercent);
+            if (angleSlider) angleSlider.value = String(threeLightAngle);
+            if (intensityValue) intensityValue.innerText = `${threeLightIntensityPercent}%`;
+            if (angleValue) angleValue.innerText = `${threeLightAngle}deg`;
         }
 
         function updateThreeCameraInteractionState() {
@@ -960,9 +1249,9 @@
             disposeThreeBarScene();
 
             const { scene, camera, controls, renderer } = state;
-            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 1.65);
+            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 0.7);
             scene.add(hemisphereLight);
-            const keyLight = new THREE.DirectionalLight(0xffffff, 2.7);
+            const keyLight = new THREE.DirectionalLight(0xffffff, 3);
             keyLight.castShadow = true;
             keyLight.shadow.mapSize.set(2048, 2048);
             keyLight.shadow.camera.near = 0.5;
@@ -975,7 +1264,7 @@
             keyLight.shadow.normalBias = 0.025;
             scene.add(keyLight);
             scene.add(keyLight.target);
-            const fillLight = new THREE.DirectionalLight(0xdbeafe, 1.2);
+            const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.45);
             fillLight.position.set(-8, 4, -6);
             scene.add(fillLight);
             state.hemisphereLight = hemisphereLight;
@@ -988,6 +1277,7 @@
             const count = Math.max(labels.length, 1);
             const datasetCount = Math.max(datasetList.length, 1);
             const isHorizontal = barOrientation === 'horizontal';
+            state.isHorizontal = isHorizontal;
             const spacing = count === 1 ? 0 : Math.min(isHorizontal ? 1.65 : 2.7, (isHorizontal ? 8 : 10) / (count - 1));
             const groupThickness = Math.min(1.55, Math.max(0.38, Math.max(spacing, 1.2) * (barWidthPercent / 100) * 0.92));
             const barThickness = datasetCount > 1 ? groupThickness / datasetCount * 0.88 : groupThickness;
@@ -1127,6 +1417,7 @@
         }
 
         function applyBulkRowColor(color) {
+            invalidateShareLink();
             document.querySelectorAll('#data-input-container .row-color-wrapper input[type="color"]').forEach(input => {
                 input.value = color;
                 input.dataset.noColor = 'false';
@@ -1135,6 +1426,7 @@
 
             const indicator = document.getElementById('bulkRowColorIndicator');
             if (indicator) indicator.style.backgroundColor = color;
+            syncLineDataInputs();
             createOrUpdateChart();
         }
 
@@ -1276,6 +1568,11 @@
             });
             renderThreeBarView(labels, datasets);
         }
+
+        function applyChartUpdate() {
+            createOrUpdateChart();
+            setShareLinkCurrent(false);
+        }
         
         function parseAllData(chartType) {
             const labelInputs = document.querySelectorAll('#data-input-container input[type="text"]');
@@ -1364,13 +1661,17 @@
 
             } else if (chartType === 'line' || chartType === 'radar') {
                 chartLabels = labelValues;
+                const isLineChart = chartType === 'line';
+                const mainLineColor = hexToRgba(mainDatasetColor, fillOpacity);
                 datasets.push({
                     label: mainDatasetName,
                     data: dataValues,
-                    borderColor: mainDatasetColor,
-                    backgroundColor: hexToRgba(mainDatasetColor, chartType === 'radar' ? fillOpacity : 0),
-                    pointBackgroundColor: chartType === 'line' ? '#fff' : mainDatasetColor,
-                    pointBorderColor: chartType === 'line' ? mainDatasetColor : '#fff',
+                    borderColor: isLineChart ? mainLineColor : mainDatasetColor,
+                    backgroundColor: isLineChart
+                        ? (isLineAreaFillEnabled ? hexToRgba(mainDatasetColor, lineAreaFillOpacityPercent / 100) : 'rgba(0, 0, 0, 0)')
+                        : hexToRgba(mainDatasetColor, fillOpacity),
+                    pointBackgroundColor: isLineChart ? '#fff' : mainDatasetColor,
+                    pointBorderColor: isLineChart ? mainDatasetColor : '#fff',
                     pointHoverBackgroundColor: '#fff',
                     pointHoverBorderColor: mainDatasetColor,
                     borderWidth: 3,
@@ -1393,7 +1694,7 @@
                         : [],
                     spanGaps: chartType === 'line',
                     tension: chartType === 'line' ? 0 : 0.1,
-                    fill: chartType === 'radar'
+                    fill: isLineChart ? isLineAreaFillEnabled : true
                 });
 
                 document.querySelectorAll('.additional-dataset-block').forEach((block, index) => {
@@ -1401,14 +1702,17 @@
                     const dsColor = getColorInputValue(block.querySelector('.dataset-color-picker'), baseColors[(index+1)%baseColors.length]['1']);
                     const inputs = block.querySelectorAll('input.dataset-value');
                     const arr = Array.from(inputs).map(parseDataValue);
-                    
+                    const datasetLineColor = hexToRgba(dsColor, fillOpacity);
+
                     datasets.push({
                         label: name,
                         data: arr,
-                        borderColor: dsColor,
-                        backgroundColor: hexToRgba(dsColor, chartType === 'radar' ? fillOpacity : 0),
-                        pointBackgroundColor: chartType === 'line' ? '#fff' : dsColor,
-                        pointBorderColor: chartType === 'line' ? dsColor : '#fff',
+                        borderColor: isLineChart ? datasetLineColor : dsColor,
+                        backgroundColor: isLineChart
+                            ? (isLineAreaFillEnabled ? hexToRgba(dsColor, lineAreaFillOpacityPercent / 100) : 'rgba(0, 0, 0, 0)')
+                            : hexToRgba(dsColor, fillOpacity),
+                        pointBackgroundColor: isLineChart ? '#fff' : dsColor,
+                        pointBorderColor: isLineChart ? dsColor : '#fff',
                         pointHoverBackgroundColor: '#fff',
                         pointHoverBorderColor: dsColor,
                         borderWidth: 3,
@@ -1431,7 +1735,7 @@
                             : [],
                         spanGaps: chartType === 'line',
                         tension: chartType === 'line' ? 0 : 0.1,
-                        fill: chartType === 'radar'
+                        fill: isLineChart ? isLineAreaFillEnabled : true
                     });
                 });
 
@@ -1613,6 +1917,7 @@
             document.getElementById('threeLightingControl')?.classList.toggle('hidden', !isThreeDBarView);
             document.getElementById('barWidthControl')?.classList.toggle('hidden', !supportsWidthControl);
             document.getElementById('linePointStyleControl')?.classList.toggle('hidden', chartType !== 'line');
+            document.getElementById('lineAreaFillControl')?.classList.toggle('hidden', chartType !== 'line');
             document.getElementById('yAxisStartControl')?.classList.toggle('hidden', !supportsYAxisStart);
             const psdButton = document.getElementById('savePsdBtn');
             if (psdButton) {
@@ -1625,6 +1930,9 @@
             updateBarOrientationButton();
             updateBar3dButton();
             updateLinePointStyleButton();
+            updateLineAreaFillButton();
+            syncFillOpacityControl();
+            syncLineAreaFillOpacityControl();
             
             const mainColorContainer = document.getElementById('mainDatasetColorContainer');
             if (usesMainDatasetColor) mainColorContainer.classList.remove('hidden');
@@ -1633,8 +1941,8 @@
             const inputContainer = document.getElementById('data-input-container');
             if (isLineOrRadar) inputContainer.classList.add('hide-row-color');
             else inputContainer.classList.remove('hide-row-color');
+            document.getElementById('additional-datasets-container')?.classList.toggle('hide-row-color', isLineOrRadar);
             document.getElementById('bulkRowColorBtn')?.classList.toggle('invisible', isLineOrRadar);
-
             document.querySelectorAll('.additional-dataset-block').forEach(block => {
                 const picker = block.querySelector('.dataset-color-container');
                 if (picker) {
@@ -1864,7 +2172,8 @@
                         display: function(context) {
                             if (!isDataLabelVisible || isGraphOnlyMode) return false;
                             if (chartType === 'square' || chartType === 'sankey') return false;
-                            if (chartType === 'line' && (context.raw === null || context.raw === undefined)) return false;
+                            const rawValue = context.dataset.data[context.dataIndex];
+                            if (chartType === 'line' && (rawValue === null || rawValue === undefined)) return false;
                             
                             // halfDoughnut 예외 처리 로직을 여기서 통합
                             if (chartType === 'halfDoughnut') {
@@ -2066,37 +2375,55 @@
         function handleDragStart(e) { dragSrcRow = this; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', this.innerHTML); this.classList.add('dragging'); }
         function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
         function handleDragEnd(e) { this.classList.remove('dragging'); dragSrcRow = null; this.setAttribute('draggable', 'false'); }
+        function moveRowAtIndex(container, fromIndex, toIndex) {
+            const rows = Array.from(container.children);
+            const source = rows[fromIndex];
+            const target = rows[toIndex];
+            if (!source || !target || source === target) return;
+            if (fromIndex < toIndex) target.after(source); else target.before(source);
+        }
+        function reorderSharedItemRows(fromIndex, toIndex) {
+            if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+            invalidateShareLink();
+            moveRowAtIndex(document.getElementById('data-input-container'), fromIndex, toIndex);
+            document.querySelectorAll('.additional-dataset-block .dataset-body').forEach(body => {
+                moveRowAtIndex(body, fromIndex, toIndex);
+            });
+            syncLineDataInputs();
+            createOrUpdateChart();
+        }
         function handleDrop(e) {
             if (e.stopPropagation) e.stopPropagation();
             if (dragSrcRow !== this) {
-                const container = document.getElementById('data-input-container');
-                const rows = Array.from(container.children);
-                const fromIndex = rows.indexOf(dragSrcRow);
-                const toIndex = rows.indexOf(this);
-                if (fromIndex < toIndex) this.after(dragSrcRow); else this.before(dragSrcRow);
-
-                document.querySelectorAll('.additional-dataset-block .dataset-body').forEach(body => {
-                    const subRows = Array.from(body.children);
-                    if (subRows[fromIndex] && subRows[toIndex]) {
-                        const subSrc = subRows[fromIndex];
-                        const subTarget = subRows[toIndex];
-                        if (fromIndex < toIndex) subTarget.after(subSrc); else subTarget.before(subSrc);
-                    }
-                });
-                syncLineDataInputs();
-                createOrUpdateChart();
+                const fromIndex = Array.from(dragSrcRow.parentElement.children).indexOf(dragSrcRow);
+                const toIndex = Array.from(this.parentElement.children).indexOf(this);
+                reorderSharedItemRows(fromIndex, toIndex);
             }
             return false;
         }
 
+        function wireItemRowDragging(row) {
+            const handle = row.querySelector('.drag-handle');
+            if (!handle) return;
+            handle.addEventListener('mouseenter', () => row.setAttribute('draggable', 'true'));
+            handle.addEventListener('mouseleave', () => {
+                if (!row.classList.contains('dragging')) row.setAttribute('draggable', 'false');
+            });
+            row.addEventListener('dragstart', handleDragStart);
+            row.addEventListener('dragover', handleDragOver);
+            row.addEventListener('drop', handleDrop);
+            row.addEventListener('dragend', handleDragEnd);
+        }
+
         function addInputRow(label = '', value = '', customColor = null) {
+            invalidateShareLink();
             const container = document.getElementById('data-input-container');
             const rowCount = container.children.length;
             const baseColors = getBaseColors();
             const defaultColor = customColor || baseColors[rowCount % baseColors.length]['1'];
 
             const row = document.createElement('div');
-            row.className = 'flex items-center gap-1.5 data-row group bg-white p-1 rounded-lg border border-transparent hover:border-gray-200 transition-all';
+            row.className = 'data-entry-grid data-row group bg-white px-1 py-0.5 rounded-md border border-transparent hover:border-gray-200 transition-all';
             row.draggable = false; 
             
             const dragHandle = `<div class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>`;
@@ -2105,18 +2432,15 @@
             row.innerHTML = `
                 ${dragHandle}
                 ${colorPickerHtml}
-                <input type="text" value="${label}" class="item-label-input flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="항목">
-                <input type="number" value="${value}" class="item-value-input w-24 px-2 py-1.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right" placeholder="수치">
-                <button onclick="removeInputRow(this)" class="text-red-400 hover:text-red-600 p-1.5 rounded-lg transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
+                <input type="text" value="${label}" class="item-label-input min-w-0 px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="항목">
+                <input type="number" value="${value}" class="item-value-input px-2 py-1.5 border border-gray-300 focus:outline-none text-sm text-right" placeholder="수치">
+                <button onclick="removeInputRow(this)" class="row-remove-button text-red-400 hover:text-red-600 p-1.5 rounded-md transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
             `;
 
-            const handleDiv = row.querySelector('.drag-handle');
             const colorInput = row.querySelector('input[type="color"]');
             const colorIndicator = row.querySelector('.color-indicator');
 
-            handleDiv.addEventListener('mouseenter', () => row.setAttribute('draggable', 'true'));
-            handleDiv.addEventListener('mouseleave', () => { if (!row.classList.contains('dragging')) row.setAttribute('draggable', 'false'); });
-            row.addEventListener('dragstart', handleDragStart); row.addEventListener('dragover', handleDragOver); row.addEventListener('drop', handleDrop); row.addEventListener('dragend', handleDragEnd);
+            wireItemRowDragging(row);
 
             colorInput.addEventListener('input', (e) => {
                 e.target.dataset.noColor = 'false';
@@ -2134,6 +2458,7 @@
         }
 
         function removeInputRow(button) {
+            invalidateShareLink();
             button.closest('.data-row').remove();
             syncLineDataInputs();
             refreshSankeyTransitionRows(true);
@@ -2147,14 +2472,10 @@
 
             const areHidden = !areItemNamesVisible;
             container.classList.toggle('hide-item-names', areHidden);
+            document.getElementById('additional-datasets-container')?.classList.toggle('hide-item-names', areHidden);
             button.setAttribute('aria-pressed', String(areHidden));
             button.title = areHidden ? '항목명 표시하기' : '항목명 숨기기';
-            button.classList.toggle('bg-gray-700', areHidden);
-            button.classList.toggle('text-white', areHidden);
-            button.classList.toggle('hover:bg-gray-800', areHidden);
-            button.classList.toggle('bg-gray-200', !areHidden);
-            button.classList.toggle('text-gray-700', !areHidden);
-            button.classList.toggle('hover:bg-gray-300', !areHidden);
+            button.classList.toggle('item-names-hidden-state', areHidden);
             button.querySelector('.item-name-visible-icon').classList.toggle('hidden', areHidden);
             button.querySelector('.item-name-hidden-icon').classList.toggle('hidden', !areHidden);
 
@@ -2251,8 +2572,13 @@
             `;
 
             row.addEventListener('input', createOrUpdateChart);
-            row.addEventListener('change', createOrUpdateChart);
+            row.addEventListener('input', invalidateShareLink);
+            row.addEventListener('change', () => {
+                invalidateShareLink();
+                createOrUpdateChart();
+            });
             row.querySelector('.sankey-remove').addEventListener('click', () => {
+                invalidateShareLink();
                 row.remove();
                 refreshSankeyTransitionRows(false);
                 createOrUpdateChart();
@@ -2260,6 +2586,7 @@
 
             container.appendChild(row);
             if (shouldUpdate) {
+                invalidateShareLink();
                 createOrUpdateChart();
             }
         }
@@ -2300,35 +2627,34 @@
         }
 
         function addDataset() {
+            invalidateShareLink();
             const container = document.getElementById('additional-datasets-container');
             const block = document.createElement('div');
-            block.className = 'additional-dataset-block border p-3 rounded-lg relative';
+            block.className = 'additional-dataset-block relative';
             const datasetCount = container.children.length + 2;
             const baseColors = getBaseColors();
             const defaultColor = baseColors[(datasetCount - 1) % baseColors.length]['1'];
             
             const colorPickerHtml = `
                 <div class="dataset-color-container hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">색상</label>
                     <div class="relative h-[38px] w-[40px]">
-                        <input type="color" class="dataset-color-picker absolute inset-0 w-full h-full p-0 border-0 rounded cursor-pointer" value="${defaultColor}">
+                        <input type="color" aria-label="데이터셋 색상" class="dataset-color-picker absolute inset-0 w-full h-full p-0 border-0 rounded cursor-pointer" value="${defaultColor}">
                     </div>
                 </div>
             `;
 
             block.innerHTML = `
-                <div class="flex gap-2 items-end mb-4">
+                <div class="dataset-header-grid mb-3">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">데이터셋 이름</label>
-                        <input type="text" class="dataset-name w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" value="데이터셋 ${datasetCount}">
+                        <input type="text" aria-label="데이터셋 이름" class="dataset-name w-full px-3 py-2 border border-gray-300 focus:outline-none text-sm" value="데이터셋 ${datasetCount}">
                     </div>
                     ${colorPickerHtml}
-                    <button onclick="removeDataset(this)" class="bg-red-500 text-white font-bold h-[38px] w-[40px] rounded-lg hover:bg-red-600 transition flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                    <button onclick="removeDataset(this)" title="데이터셋 삭제" aria-label="데이터셋 삭제" class="flex h-[38px] w-8 items-center justify-center rounded-md text-red-400 transition hover:bg-red-50 hover:text-red-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
                     </button>
                 </div>
                 <div class="dataset-body space-y-1"></div>
-                <div class="dataset-total-display text-right font-bold text-lg text-gray-800 mt-2">합계: 0</div>
+                <div class="dataset-total-display text-right font-bold text-gray-800 mt-2">합계: 0</div>
             `;
             container.appendChild(block);
             
@@ -2348,27 +2674,92 @@
         }
 
         function removeDataset(button) {
+            invalidateShareLink();
             button.closest('.additional-dataset-block').remove();
             refreshSankeyTransitionRows(false);
             updateUIForChartType(document.getElementById('chartType').value);
             createOrUpdateChart();
         }
 
+        function syncSharedItemMetadata(sourceRow) {
+            const rowIndex = Array.from(sourceRow.parentElement.children).indexOf(sourceRow);
+            if (rowIndex < 0) return;
+
+            const labelInput = sourceRow.querySelector('.item-label-input, .dataset-item-label-input');
+            const colorInput = sourceRow.querySelector('.row-color-wrapper input[type="color"]');
+            const label = labelInput?.value || '';
+            const color = colorInput?.value || '#3B82F6';
+            const noColor = colorInput?.dataset.noColor === 'true';
+            const mainRow = document.querySelectorAll('#data-input-container .data-row')[rowIndex];
+
+            if (mainRow && mainRow !== sourceRow) {
+                const mainLabelInput = mainRow.querySelector('.item-label-input');
+                const mainColorInput = mainRow.querySelector('.row-color-wrapper input[type="color"]');
+                if (mainLabelInput) mainLabelInput.value = label;
+                if (mainColorInput) {
+                    mainColorInput.value = color;
+                    mainColorInput.dataset.noColor = String(noColor);
+                    updateColorInputVisualState(mainColorInput);
+                }
+            }
+
+            document.querySelectorAll('.additional-dataset-block .dataset-body').forEach(body => {
+                const row = body.children[rowIndex];
+                if (!row || row === sourceRow) return;
+                const syncedLabelInput = row.querySelector('.dataset-item-label-input');
+                const syncedColorInput = row.querySelector('.row-color-wrapper input[type="color"]');
+                if (syncedLabelInput) {
+                    syncedLabelInput.value = label;
+                    syncedLabelInput.title = label;
+                }
+                if (syncedColorInput) {
+                    syncedColorInput.value = color;
+                    syncedColorInput.dataset.noColor = String(noColor);
+                    updateColorInputVisualState(syncedColorInput);
+                }
+            });
+
+            refreshSankeyTransitionRows(false);
+            createOrUpdateChart();
+        }
+
         function syncLineDataInputs() {
-            const labels = Array.from(document.querySelectorAll('#data-input-container input[type="text"]')).map(input => input.value.trim());
+            const items = Array.from(document.querySelectorAll('#data-input-container .data-row')).map(row => {
+                const colorInput = row.querySelector('.row-color-wrapper input[type="color"]');
+                return {
+                    label: row.querySelector('.item-label-input')?.value.trim() || '',
+                    color: colorInput?.value || '#3B82F6',
+                    noColor: colorInput?.dataset.noColor === 'true'
+                };
+            });
             document.querySelectorAll('.additional-dataset-block').forEach(block => {
                 const body = block.querySelector('.dataset-body');
                 const existingValues = Array.from(body.querySelectorAll('input[type="number"]')).map(input => input.value);
-                body.innerHTML = ''; 
-                labels.forEach((label, index) => {
+                body.innerHTML = '';
+                items.forEach((item, index) => {
                     const value = existingValues[index] || '';
                     const row = document.createElement('div');
-                    row.className = 'flex items-center gap-2';
+                    row.className = 'data-entry-grid dataset-data-row min-h-[38px] px-1 py-0.5 rounded-md border border-transparent';
                     row.innerHTML = `
-                        <span class="synced-label" title="${label}">${label}</span>
-                        <input type="number" value="${value}" class="w-2/5 px-2 py-1.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dataset-value" placeholder="수치">
-                        <div class="w-1/5"></div>
+                        <div class="drag-handle text-gray-400 p-1" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>
+                        <div class="row-color-wrapper relative"><div class="color-indicator ${item.noColor ? 'no-color' : ''} w-6 h-6 rounded-full mr-1 shadow-sm border border-gray-200" style="${item.noColor ? '' : `background-color: ${item.color};`}"></div><input type="color" aria-label="항목 색상" class="dataset-row-color-input absolute inset-0 h-full w-full cursor-pointer opacity-0" value="${item.color}"></div>
+                        <input type="text" aria-label="항목명" class="dataset-item-label-input min-w-0 px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="항목">
+                        <input type="number" value="${value}" class="dataset-value px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="수치">
+                        <button type="button" disabled tabindex="-1" aria-label="상위 데이터셋에서 관리되는 항목" class="dataset-row-remove-button text-red-400 p-1.5 rounded-md"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
                     `;
+                    const labelInput = row.querySelector('.dataset-item-label-input');
+                    const colorInput = row.querySelector('.dataset-row-color-input');
+                    labelInput.value = item.label;
+                    labelInput.title = item.label;
+                    colorInput.dataset.noColor = String(item.noColor);
+                    updateColorInputVisualState(colorInput);
+                    wireItemRowDragging(row);
+                    labelInput.addEventListener('input', () => syncSharedItemMetadata(row));
+                    colorInput.addEventListener('input', (event) => {
+                        event.target.dataset.noColor = 'false';
+                        updateColorInputVisualState(event.target);
+                        syncSharedItemMetadata(row);
+                    });
                     body.appendChild(row);
                 });
             });
@@ -2575,6 +2966,8 @@
                     options.plugins.datalabels.display = (context) => {
                         if (!isDataLabelVisible) return false;
                         if (chartType === 'square' || chartType === 'sankey') return false;
+                        const rawValue = context.dataset.data[context.dataIndex];
+                        if (chartType === 'line' && (rawValue === null || rawValue === undefined)) return false;
                         if (chartType === 'halfDoughnut') return context.dataset.data[context.dataIndex] > 0;
                         return true;
                     };
@@ -2857,10 +3250,10 @@
         }
 
         function saveGraphOnlyTransparentPng() {
-            if (downloadChartImage({ transparent: true, graphOnly: true })) {
+            if (downloadChartImage({ transparent: true, graphOnly: isGraphOnlyMode })) {
                 trackAnalyticsEvent('chart_transparent_png_download', {
                     format: 'png',
-                    export_scope: 'graph_only'
+                    export_scope: isGraphOnlyMode ? 'graph_only' : 'current_view'
                 });
             }
         }
@@ -2869,12 +3262,7 @@
             const button = document.getElementById('graphOnlyBtn');
             if (!button) return;
             button.innerText = isGraphOnlyMode ? '전체 보기' : '그래프만 보기';
-            button.classList.remove('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400', 'bg-gray-700', 'text-white', 'hover:bg-gray-800');
-            if (isGraphOnlyMode) {
-                button.classList.add('bg-gray-700', 'text-white', 'hover:bg-gray-800');
-            } else {
-                button.classList.add('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400');
-            }
+            button.classList.toggle('chart-action-active', isGraphOnlyMode);
         }
 
         function showUpdateNotice() {
@@ -2911,19 +3299,76 @@
             if (!button) return;
 
             button.innerText = isDataLabelVisible ? '수치 숨기기' : '수치 표시하기';
-            button.classList.remove('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400', 'bg-gray-700', 'text-white', 'hover:bg-gray-800');
-            if (isDataLabelVisible) {
-                button.classList.add('bg-gray-300', 'text-gray-800', 'hover:bg-gray-400');
-            } else {
-                button.classList.add('bg-gray-700', 'text-white', 'hover:bg-gray-800');
-            }
+            button.classList.toggle('chart-action-active', !isDataLabelVisible);
         }
 
         function syncFillOpacityControl() {
             const slider = document.getElementById('fillOpacitySlider');
             const value = document.getElementById('fillOpacityValue');
+            const label = document.getElementById('fillOpacityLabel');
+            const button = document.getElementById('fillOpacityButton');
+            const isLineChart = document.getElementById('chartType')?.value === 'line';
+            const controlLabel = isLineChart ? '선 오파시티' : '채움 오파시티';
             if (slider) slider.value = String(fillOpacityPercent);
             if (value) value.innerText = `${fillOpacityPercent}%`;
+            if (label) label.innerText = controlLabel;
+            if (button) button.setAttribute('aria-label', controlLabel);
+        }
+
+        function updateLineAreaFillButton() {
+            const button = document.getElementById('toggleLineAreaFillBtn');
+            const tooltip = document.getElementById('lineAreaFillTooltip');
+            const status = document.getElementById('lineAreaFillStatus');
+            const opacityRow = document.getElementById('lineAreaFillOpacityRow');
+            if (!button || !tooltip || !status || !opacityRow) return;
+
+            const nextLabel = isLineAreaFillEnabled ? '하단 채우기 끄기' : '하단 채우기 켜기';
+            button.setAttribute('aria-pressed', String(isLineAreaFillEnabled));
+            button.setAttribute('aria-label', nextLabel);
+            button.setAttribute('title', nextLabel);
+            status.innerText = nextLabel;
+            opacityRow.classList.toggle('hidden', !isLineAreaFillEnabled);
+            button.classList.toggle('bg-blue-600', isLineAreaFillEnabled);
+            button.classList.toggle('text-white', isLineAreaFillEnabled);
+            button.classList.toggle('hover:bg-blue-700', isLineAreaFillEnabled);
+            button.classList.toggle('bg-gray-100', !isLineAreaFillEnabled);
+            button.classList.toggle('text-gray-600', !isLineAreaFillEnabled);
+            button.classList.toggle('hover:bg-gray-200', !isLineAreaFillEnabled);
+        }
+
+        function syncLineAreaFillOpacityControl() {
+            const slider = document.getElementById('lineAreaFillOpacitySlider');
+            const value = document.getElementById('lineAreaFillOpacityValue');
+            if (slider) slider.value = String(lineAreaFillOpacityPercent);
+            if (value) value.innerText = `${lineAreaFillOpacityPercent}%`;
+        }
+
+        function updateLineOpacity() {
+            if (document.getElementById('chartType')?.value !== 'line' || !myChart) return false;
+
+            const opacity = fillOpacityPercent / 100;
+            myChart.data.datasets.forEach((dataset, index) => {
+                const colorInput = getDatasetColorInput(index);
+                const color = getColorInputValue(colorInput, '#3B82F6');
+                dataset.borderColor = hexToRgba(color, opacity);
+            });
+            myChart.update('none');
+            return true;
+        }
+
+        function updateLineAreaFill() {
+            if (document.getElementById('chartType')?.value !== 'line' || !myChart) return false;
+
+            const opacity = lineAreaFillOpacityPercent / 100;
+            myChart.data.datasets.forEach((dataset, index) => {
+                const color = getColorInputValue(getDatasetColorInput(index), '#3B82F6');
+                dataset.backgroundColor = isLineAreaFillEnabled
+                    ? hexToRgba(color, opacity)
+                    : 'rgba(0, 0, 0, 0)';
+                dataset.fill = isLineAreaFillEnabled;
+            });
+            myChart.update('none');
+            return true;
         }
 
         function encodeShareState(state) {
@@ -2986,6 +3431,8 @@
                     lineStrokeWidth,
                     lineStrokeStyle,
                     linePointStyle,
+                    lineAreaFillEnabled: isLineAreaFillEnabled,
+                    lineAreaFillOpacityPercent,
                     fillOpacityPercent,
                     yAxisStartMode
                 }
@@ -3064,6 +3511,10 @@
             lineStrokeWidth = Number(settings.lineStrokeWidth) || 10;
             lineStrokeStyle = settings.lineStrokeStyle === 'dashed' ? 'dashed' : 'solid';
             linePointStyle = ['circle', 'rect', 'none'].includes(settings.linePointStyle) ? settings.linePointStyle : 'circle';
+            isLineAreaFillEnabled = Boolean(settings.lineAreaFillEnabled);
+            lineAreaFillOpacityPercent = Number.isFinite(Number(settings.lineAreaFillOpacityPercent))
+                ? Math.min(100, Math.max(0, Number(settings.lineAreaFillOpacityPercent)))
+                : DEFAULT_LINE_AREA_FILL_OPACITY_PERCENT;
             fillOpacityPercent = Number.isFinite(Number(settings.fillOpacityPercent))
                 ? Math.min(100, Math.max(0, Number(settings.fillOpacityPercent)))
                 : DEFAULT_FILL_OPACITY_PERCENT;
@@ -3081,16 +3532,39 @@
             updateYAxisStartButtons();
             updateUIForChartType(state.chartType);
             syncFillOpacityControl();
-            document.getElementById('threeLightIntensitySlider').value = String(threeLightIntensityPercent);
-            document.getElementById('threeLightAngleSlider').value = String(threeLightAngle);
+            syncThreeLightingControls();
             renderChartRangeEditor();
             updateAllTotals();
             createOrUpdateChart();
             return true;
         }
 
-        async function copyShareLink() {
+        function setShareLinkCurrent(isCurrent) {
             const button = document.getElementById('copyShareLinkBtn');
+            if (!button) return;
+
+            button.classList.toggle('is-shared', isCurrent);
+            button.setAttribute('aria-pressed', String(isCurrent));
+            button.title = isCurrent ? '현재 공유 링크가 복사됨' : '현재 데이터 공유 링크 복사';
+        }
+
+        function invalidateShareLink() {
+            setShareLinkCurrent(false);
+        }
+
+        function showShareCopyToast() {
+            const toast = document.getElementById('shareCopyToast');
+            if (!toast) return;
+
+            if (shareCopyToastTimer) window.clearTimeout(shareCopyToastTimer);
+            toast.classList.add('is-visible');
+            shareCopyToastTimer = window.setTimeout(() => {
+                toast.classList.remove('is-visible');
+                shareCopyToastTimer = null;
+            }, 1800);
+        }
+
+        async function copyShareLink() {
             const url = new URL(window.location.href);
             url.hash = `share=${encodeShareState(getShareState())}`;
 
@@ -3111,14 +3585,8 @@
 
                 trackAnalyticsEvent('chart_share_link_copy', { share_type: 'url' });
 
-                button.title = '공유 링크가 복사되었습니다';
-                button.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-                button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                window.setTimeout(() => {
-                    button.title = '현재 데이터 공유 링크 복사';
-                    button.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                    button.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
-                }, 1800);
+                setShareLinkCurrent(true);
+                showShareCopyToast();
             } catch (error) {
                 console.error('공유 링크를 복사하지 못했습니다.', error);
                 window.prompt('아래 링크를 복사하세요.', url.href);
@@ -3532,11 +4000,30 @@
             addInputRow('모름', 20, baseColors[1]['1']);
             addInputRow('반대', 50, baseColors[2]['1']);
         }
-        
+
+        function setupSliderPopoverDismissals() {
+            document.querySelectorAll('.slider-control').forEach(control => {
+                const clearSuppression = () => control.classList.remove('suppress-popover-hover');
+                control.addEventListener('pointerenter', clearSuppression);
+                control.addEventListener('pointerleave', clearSuppression);
+                control.addEventListener('pointerdown', clearSuppression);
+                control.addEventListener('focusin', clearSuppression);
+                control.querySelectorAll('input[type="range"]').forEach(slider => {
+                    const dismissAfterDrag = () => {
+                        slider.blur();
+                        control.classList.add('suppress-popover-hover');
+                    };
+                    slider.addEventListener('pointerup', dismissAfterDrag);
+                    slider.addEventListener('pointercancel', dismissAfterDrag);
+                });
+            });
+        }
+
         window.onload = () => {
             fillOpacityPercent = DEFAULT_FILL_OPACITY_PERCENT;
             syncFillOpacityControl();
             setupInitialFields();
+            setupSliderPopoverDismissals();
             updateScreenGuide();
             renderLayoutEditor();
             renderChartRangeEditor();
@@ -3564,12 +4051,13 @@
             });
 
             if (document.fonts?.load) {
-                document.fonts.load("16px 'MBC Chart'")
+                document.fonts.load("16px 'Pretendard Variable'")
                     .then(() => createOrUpdateChart())
                     .catch(() => {});
             }
 
             document.getElementById('chartType').addEventListener('change', (e) => {
+                invalidateShareLink();
                 const chartType = e.target.value;
                 if (chartType === 'bar') barOrientation = 'vertical';
                 if (chartType === 'singleStackedBar') barOrientation = 'horizontal';
@@ -3587,10 +4075,12 @@
             });
 
             document.getElementById('mainDatasetName').addEventListener('input', () => {
+                invalidateShareLink();
                 refreshSankeyTransitionRows(false);
                 createOrUpdateChart();
             });
             document.getElementById('mainDatasetColor').addEventListener('input', (event) => {
+                invalidateShareLink();
                 event.target.dataset.noColor = 'false';
                 updateColorInputVisualState(event.target);
                 createOrUpdateChart();
@@ -3641,8 +4131,10 @@
                 const menu = document.getElementById('chartDataContextMenu');
                 const colorInput = menu?.activeColorInput;
                 if (!colorInput) return;
+                invalidateShareLink();
                 colorInput.dataset.noColor = 'true';
                 updateColorInputVisualState(colorInput);
+                syncLineDataInputs();
                 hideChartDataContextMenu();
                 createOrUpdateChart();
             });
@@ -3662,10 +4154,12 @@
             });
             document.getElementById('threeLightIntensitySlider').addEventListener('input', (event) => {
                 threeLightIntensityPercent = Number(event.target.value);
+                syncThreeLightingControls();
                 updateThreeLighting();
             });
             document.getElementById('threeLightAngleSlider').addEventListener('input', (event) => {
                 threeLightAngle = Number(event.target.value);
+                syncThreeLightingControls();
                 updateThreeLighting();
             });
             document.getElementById('resetChartRangeBtn').addEventListener('click', resetChartRange);
@@ -3692,10 +4186,25 @@
                 updateLinePointStyleButton();
                 createOrUpdateChart();
             });
+            document.getElementById('toggleLineAreaFillBtn').addEventListener('click', () => {
+                if (document.getElementById('chartType').value !== 'line') return;
+                isLineAreaFillEnabled = !isLineAreaFillEnabled;
+                invalidateShareLink();
+                updateLineAreaFillButton();
+                syncLineAreaFillOpacityControl();
+                if (!updateLineAreaFill()) createOrUpdateChart();
+            });
+            document.getElementById('lineAreaFillOpacitySlider').addEventListener('input', (event) => {
+                lineAreaFillOpacityPercent = Math.min(100, Math.max(0, Number(event.target.value)));
+                invalidateShareLink();
+                syncLineAreaFillOpacityControl();
+                if (!updateLineAreaFill()) createOrUpdateChart();
+            });
             document.getElementById('fillOpacitySlider').addEventListener('input', (event) => {
                 fillOpacityPercent = Math.min(100, Math.max(0, Number(event.target.value)));
+                invalidateShareLink();
                 syncFillOpacityControl();
-                createOrUpdateChart();
+                if (!updateLineOpacity()) createOrUpdateChart();
             });
             document.getElementById('yAxisStartControl').addEventListener('click', (event) => {
                 const button = event.target.closest('[data-y-axis-start]');
@@ -3710,12 +4219,14 @@
                 createOrUpdateChart();
             });
             document.getElementById('data-input-container').addEventListener('input', (event) => {
+                invalidateShareLink();
                 syncLineDataInputs();
                 if (event.target.type === 'text') refreshSankeyTransitionRows(true);
                 createOrUpdateChart();
                 updateAllTotals();
             });
             document.getElementById('additional-datasets-container').addEventListener('input', (event) => {
+                invalidateShareLink();
                 if (event.target.classList.contains('dataset-name')) refreshSankeyTransitionRows(false);
                 createOrUpdateChart();
                 updateAllTotals();
