@@ -2789,6 +2789,10 @@
                 pointRadius: 0,
                 pointHoverRadius: 0,
                 radius: 0,
+                fill: chartType === 'line' ? false : dataset.fill,
+                segment: chartType === 'line'
+                    ? { ...(dataset.segment || {}), borderColor: transparent, borderWidth: 0 }
+                    : dataset.segment,
                 alpha: chartType === 'sankey' ? 0 : dataset.alpha,
                 ...(chartType === 'sankey' ? {
                     colorFrom: () => transparent,
@@ -2797,6 +2801,64 @@
                     hoverColorTo: () => transparent
                 } : {})
             }));
+        }
+
+        function makeHeaderLayerDatasets(datasets, chartType) {
+            if (chartType !== 'line') return datasets;
+            return datasets.map(dataset => ({
+                ...dataset,
+                fill: false
+            }));
+        }
+
+        function makeLinePsdLayerDatasets(datasets, layer) {
+            const transparent = 'rgba(0, 0, 0, 0)';
+
+            return datasets.map(dataset => {
+                const baseDataset = {
+                    ...dataset,
+                    segment: { ...(dataset.segment || {}) }
+                };
+
+                if (layer === 'lineStroke') {
+                    return {
+                        ...baseDataset,
+                        backgroundColor: transparent,
+                        pointBackgroundColor: transparent,
+                        pointBorderColor: transparent,
+                        pointHoverBackgroundColor: transparent,
+                        pointHoverBorderColor: transparent,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false
+                    };
+                }
+
+                if (layer === 'lineMarkers') {
+                    return {
+                        ...baseDataset,
+                        backgroundColor: transparent,
+                        borderColor: transparent,
+                        borderWidth: 0,
+                        segment: { ...baseDataset.segment, borderColor: transparent, borderWidth: 0 },
+                        fill: false
+                    };
+                }
+
+                return {
+                    ...baseDataset,
+                    borderColor: transparent,
+                    borderWidth: 0,
+                    pointBackgroundColor: transparent,
+                    pointBorderColor: transparent,
+                    pointHoverBackgroundColor: transparent,
+                    pointHoverBorderColor: transparent,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    segment: { ...baseDataset.segment, borderColor: transparent, borderWidth: 0 },
+                    fill: dataset.fill
+                };
+            });
         }
 
         function makeGraphItemLayerDatasets(datasets, chartType, itemIndex, datasetIndex = null) {
@@ -2928,6 +2990,10 @@
                     datasets = makeLayerDatasetsTransparent(sourceDatasets, chartType);
                 } else if (layer === 'graphItem') {
                     datasets = makeGraphItemLayerDatasets(sourceDatasets, chartType, itemIndex, datasetIndex);
+                } else if (layer === 'header') {
+                    datasets = makeHeaderLayerDatasets(sourceDatasets, chartType);
+                } else if (['lineAreaFill', 'lineStroke', 'lineMarkers'].includes(layer)) {
+                    datasets = makeLinePsdLayerDatasets(sourceDatasets, layer);
                 }
                 const options = buildChartOptions(
                     chartType,
@@ -2944,13 +3010,17 @@
                     ? 'graph'
                     : layer === 'labels'
                         ? 'labels'
-                        : ['header', 'structure', 'graphItem'].includes(layer)
+                        : ['header', 'structure', 'graphItem', 'lineAreaFill', 'lineStroke', 'lineMarkers'].includes(layer)
                             ? 'hidden'
                             : 'combined';
                 options.plugins.tooltip.enabled = false;
 
                 const layerPlugins = [];
                 if (layer === 'graph') {
+                    makeChartHeaderTransparent(options);
+                    options.plugins.datalabels.display = false;
+                    makeScalesTransparent(options);
+                } else if (['lineAreaFill', 'lineStroke', 'lineMarkers'].includes(layer)) {
                     makeChartHeaderTransparent(options);
                     options.plugins.datalabels.display = false;
                     makeScalesTransparent(options);
@@ -3164,6 +3234,16 @@
             const headerResult = createExportChartCanvas({ transparent: true, layer: 'header' });
             if (!graphResult || !labelsResult || !headerResult) return;
 
+            const lineAreaFillResult = chartType === 'line' && isLineAreaFillEnabled
+                ? createExportChartCanvas({ transparent: true, layer: 'lineAreaFill' })
+                : null;
+            const lineStrokeResult = chartType === 'line'
+                ? createExportChartCanvas({ transparent: true, layer: 'lineStroke' })
+                : null;
+            const lineMarkersResult = chartType === 'line'
+                ? createExportChartCanvas({ transparent: true, layer: 'lineMarkers' })
+                : null;
+
             const structureResult = ['bar', 'line', 'singleStackedBar', 'polarArea', 'radar'].includes(chartType)
                 ? createExportChartCanvas({ transparent: true, layer: 'structure' })
                 : null;
@@ -3183,6 +3263,9 @@
                 labelsResult.chart,
                 headerResult.chart,
                 ...(structureResult ? [structureResult.chart] : []),
+                ...(lineAreaFillResult ? [lineAreaFillResult.chart] : []),
+                ...(lineStrokeResult ? [lineStrokeResult.chart] : []),
+                ...(lineMarkersResult ? [lineMarkersResult.chart] : []),
                 ...graphItemResults.map(item => item.result.chart)
             ];
             button.disabled = true;
@@ -3196,7 +3279,14 @@
                 const height = graphCanvas.height;
                 const localBackgroundCanvas = createLocalBackgroundCanvas(width, height);
                 const isCircularPsd = ['doughnut', 'halfDoughnut'].includes(chartType);
-                const separatedGraphChildren = isCircularPsd
+                const separatedGraphChildren = chartType === 'line'
+                    ? [
+                        ...(structureResult ? [{ name: '축 · 가이드', canvas: structureResult.canvas }] : []),
+                        ...(lineAreaFillResult ? [{ name: '하단 채우기', canvas: lineAreaFillResult.canvas }] : []),
+                        ...(lineStrokeResult ? [{ name: '선', canvas: lineStrokeResult.canvas }] : []),
+                        ...(lineMarkersResult ? [{ name: '마커', canvas: lineMarkersResult.canvas }] : [])
+                    ]
+                    : isCircularPsd
                     ? parsedData.datasets.map((dataset, datasetIndex) => ({
                         name: `${datasetIndex + 1}. ${dataset.label || `데이터셋 ${datasetIndex + 1}`}`,
                         opened: true,
