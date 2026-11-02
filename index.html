@@ -2811,6 +2811,28 @@
             }));
         }
 
+        function isolatePsdDataset(datasets, chartType, datasetIndex) {
+            if (chartType === 'singleStackedBar') {
+                // Each input dataset is a column here; Chart.js datasets are the segments.
+                const transparent = 'rgba(0, 0, 0, 0)';
+                return datasets.map(dataset => {
+                    const result = { ...dataset };
+                    ['backgroundColor', 'borderColor', 'hoverBackgroundColor', 'hoverBorderColor'].forEach(key => {
+                        const color = dataset[key];
+                        result[key] = dataset.data.map((_, index) => index === datasetIndex
+                            ? (Array.isArray(color) ? color[index] : color)
+                            : transparent);
+                    });
+                    return result;
+                });
+            }
+
+            // Keep every value in place so axes, grouped bars and doughnut positions stay fixed.
+            return datasets.map((dataset, index) => index === datasetIndex
+                ? dataset
+                : makeLayerDatasetsTransparent([dataset], chartType)[0]);
+        }
+
         function makeLinePsdLayerDatasets(datasets, layer) {
             const transparent = 'rgba(0, 0, 0, 0)';
 
@@ -2995,6 +3017,9 @@
                 } else if (['lineAreaFill', 'lineStroke', 'lineMarkers'].includes(layer)) {
                     datasets = makeLinePsdLayerDatasets(sourceDatasets, layer);
                 }
+                if (datasetIndex !== null && layer !== 'header' && layer !== 'structure') {
+                    datasets = isolatePsdDataset(datasets, chartType, datasetIndex);
+                }
                 const options = buildChartOptions(
                     chartType,
                     totalSum,
@@ -3034,6 +3059,9 @@
                 } else if (layer === 'labels') {
                     applyGraphOnlyOptions(options);
                     options.plugins.datalabels.display = (context) => {
+                        if (datasetIndex !== null && (chartType === 'singleStackedBar'
+                            ? context.dataIndex !== datasetIndex
+                            : context.datasetIndex !== datasetIndex)) return false;
                         if (!isDataLabelVisible) return false;
                         if (chartType === 'square' || chartType === 'sankey') return false;
                         const rawValue = context.dataset.data[context.dataIndex];
@@ -3226,86 +3254,75 @@
                 return;
             }
 
-            const chartType = document.getElementById('chartType').value;
-            const parsedData = parseAllData(chartType);
-            const graphItemLayers = getPsdGraphItemLayers(chartType, parsedData.labels, parsedData.datasets);
-            const graphResult = createExportChartCanvas({ transparent: true, layer: 'graph' });
-            const labelsResult = createExportChartCanvas({ transparent: true, layer: 'labels' });
-            const headerResult = createExportChartCanvas({ transparent: true, layer: 'header' });
-            if (!graphResult || !labelsResult || !headerResult) return;
-
-            const lineAreaFillResult = chartType === 'line' && isLineAreaFillEnabled
-                ? createExportChartCanvas({ transparent: true, layer: 'lineAreaFill' })
-                : null;
-            const lineStrokeResult = chartType === 'line'
-                ? createExportChartCanvas({ transparent: true, layer: 'lineStroke' })
-                : null;
-            const lineMarkersResult = chartType === 'line'
-                ? createExportChartCanvas({ transparent: true, layer: 'lineMarkers' })
-                : null;
-
-            const structureResult = ['bar', 'line', 'singleStackedBar', 'polarArea', 'radar'].includes(chartType)
-                ? createExportChartCanvas({ transparent: true, layer: 'structure' })
-                : null;
-            const graphItemResults = graphItemLayers.map(item => ({
-                ...item,
-                result: createExportChartCanvas({
-                    transparent: true,
-                    layer: 'graphItem',
-                    itemIndex: item.itemIndex,
-                    datasetIndex: item.datasetIndex
-                })
-            })).filter(item => item.result);
-
             const originalLabel = button.innerText;
-            const exportCharts = [
-                graphResult.chart,
-                labelsResult.chart,
-                headerResult.chart,
-                ...(structureResult ? [structureResult.chart] : []),
-                ...(lineAreaFillResult ? [lineAreaFillResult.chart] : []),
-                ...(lineStrokeResult ? [lineStrokeResult.chart] : []),
-                ...(lineMarkersResult ? [lineMarkersResult.chart] : []),
-                ...graphItemResults.map(item => item.result.chart)
-            ];
+            const exportCharts = [];
+            const renderLayer = (layer, datasetIndex = null, itemIndex = null) => {
+                const result = createExportChartCanvas({ transparent: true, layer, datasetIndex, itemIndex });
+                if (result) exportCharts.push(result.chart);
+                return result;
+            };
             button.disabled = true;
             button.innerText = 'PSD 준비 중...';
 
             try {
+                const chartType = document.getElementById('chartType').value;
+                const parsedData = parseAllData(chartType);
+                const graphResult = renderLayer('graph');
+                const labelsResult = renderLayer('labels');
+                const headerResult = renderLayer('header');
+                if (!graphResult || !labelsResult || !headerResult) return;
+
+                const structureResult = ['bar', 'line', 'singleStackedBar', 'polarArea', 'radar'].includes(chartType)
+                    ? renderLayer('structure')
+                    : null;
                 const graphCanvas = graphResult.canvas;
-                const labelsCanvas = labelsResult.canvas;
-                const headerCanvas = headerResult.canvas;
                 const width = graphCanvas.width;
                 const height = graphCanvas.height;
                 const localBackgroundCanvas = createLocalBackgroundCanvas(width, height);
+                const graphChildren = [];
+                const labelChildren = [];
                 const isCircularPsd = ['doughnut', 'halfDoughnut'].includes(chartType);
-                const separatedGraphChildren = chartType === 'line'
-                    ? [
-                        ...(structureResult ? [{ name: '축 · 가이드', canvas: structureResult.canvas }] : []),
-                        ...(lineAreaFillResult ? [{ name: '하단 채우기', canvas: lineAreaFillResult.canvas }] : []),
-                        ...(lineStrokeResult ? [{ name: '선', canvas: lineStrokeResult.canvas }] : []),
-                        ...(lineMarkersResult ? [{ name: '마커', canvas: lineMarkersResult.canvas }] : [])
-                    ]
-                    : isCircularPsd
-                    ? parsedData.datasets.map((dataset, datasetIndex) => ({
-                        name: `${datasetIndex + 1}. ${dataset.label || `데이터셋 ${datasetIndex + 1}`}`,
-                        opened: true,
-                        children: graphItemResults
-                            .filter(item => item.datasetIndex === datasetIndex)
-                            .map(item => ({ name: item.name, canvas: item.result.canvas }))
-                    }))
-                    : [
-                        ...(structureResult ? [{ name: '축 · 가이드', canvas: structureResult.canvas }] : []),
-                        ...(graphItemResults.length > 0
-                            ? graphItemResults.map(item => ({ name: item.name, canvas: item.result.canvas }))
-                            : [{ name: '그래프', canvas: graphCanvas }])
+                const graphItemLayers = getPsdGraphItemLayers(chartType, parsedData.labels, parsedData.datasets);
+                const datasetNames = (chartType === 'singleStackedBar'
+                    ? parsedData.labels
+                    : parsedData.datasets.map(dataset => dataset.label))
+                    .map((name, index) => name || `데이터셋${index + 1}`);
+                const addLayer = (children, name, layer, datasetIndex, itemIndex = null) => {
+                    const result = renderLayer(layer, datasetIndex, itemIndex);
+                    if (result) children.push({ name: `${name}_${datasetNames[datasetIndex]}`, canvas: result.canvas });
+                };
+                // Chart.js draws datasets in reverse order. Keep the same overlap in the PSD.
+                const datasetIndices = datasetNames.map((_, index) => index).reverse();
+
+                if (chartType === 'line') {
+                    const parts = [
+                        ...(isLineAreaFillEnabled ? [['하단 채우기', 'lineAreaFill']] : []),
+                        ['선', 'lineStroke'],
+                        ['마커', 'lineMarkers']
                     ];
+                    parts.forEach(([name, layer]) => datasetIndices.forEach(datasetIndex => {
+                        addLayer(graphChildren, name, layer, datasetIndex);
+                    }));
+                } else if (isCircularPsd || chartType === 'singleStackedBar') {
+                    datasetIndices.forEach(datasetIndex => {
+                        const children = [];
+                        graphItemLayers
+                            .filter(item => !isCircularPsd || item.datasetIndex === datasetIndex)
+                            .forEach(item => addLayer(children, item.name, 'graphItem', datasetIndex, item.itemIndex));
+                        graphChildren.push({ name: `그래프_${datasetNames[datasetIndex]}`, opened: true, children });
+                    });
+                } else {
+                    datasetIndices.forEach(datasetIndex => addLayer(graphChildren, '그래프', 'graph', datasetIndex));
+                }
+                datasetIndices.forEach(datasetIndex => addLayer(labelChildren, '수치', 'labels', datasetIndex));
+
                 // ag-psd children are composited from the first entry upward.
                 const children = [
                     ...(localBackgroundCanvas ? [{ name: '백이미지', canvas: localBackgroundCanvas }] : []),
-                    ...separatedGraphChildren,
-                    { name: '수치', canvas: labelsCanvas },
-                    { name: '제목 · 인덱스', canvas: headerCanvas }
+                    ...(structureResult ? [{ name: '축 · 가이드', canvas: structureResult.canvas }] : []),
+                    ...graphChildren,
+                    ...labelChildren,
+                    { name: '제목 · 인덱스', canvas: headerResult.canvas }
                 ];
                 const buffer = window.agPsd.writePsd({
                     width,
@@ -3316,8 +3333,8 @@
                         localBackgroundCanvas,
                         structureResult?.canvas || null,
                         graphCanvas,
-                        labelsCanvas,
-                        headerCanvas
+                        labelsResult.canvas,
+                        headerResult.canvas
                     ),
                     children
                 }, { generateThumbnail: true });
