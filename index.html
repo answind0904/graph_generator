@@ -3247,6 +3247,140 @@
             window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
+        function createLinePsdShapeLayer(exportResult, layer, datasetIndex) {
+            const { chart, canvas } = exportResult;
+            const dataset = chart.data.datasets[datasetIndex];
+            const meta = chart.getDatasetMeta(datasetIndex);
+            const scaleX = canvas.width / chart.width;
+            const scaleY = canvas.height / chart.height;
+            const strokeScale = Math.sqrt(scaleX * scaleY);
+            const validPoint = point => point && !point.skip && Number.isFinite(point.x) && Number.isFinite(point.y);
+            const knot = (x, y) => ({ linked: false, points: [x, y, x, y, x, y] });
+            const path = (knots, open = false) => ({ open, operation: 'combine', fillRule: 'non-zero', knots });
+            const color = css => {
+                const { r, g, b, a = 1 } = Chart.helpers.color(css).rgb;
+                return { content: { type: 'color', color: { r, g, b } }, opacity: a };
+            };
+            let paths = [];
+            let fill = color('#fff');
+            let stroke = color(dataset.borderColor);
+            let strokeWidth = 0;
+            let dash = [];
+            let fillEnabled = false;
+
+            if (layer === 'lineMarkers') {
+                const points = meta.data.filter(point => validPoint(point) && point.options.radius > 0);
+                if (!points.length) return null;
+                fill = color(points[0].options.backgroundColor);
+                stroke = color(points[0].options.borderColor);
+                strokeWidth = points[0].options.borderWidth * strokeScale;
+                fillEnabled = true;
+                paths = points.map(point => {
+                    const x = point.x * scaleX;
+                    const y = point.y * scaleY;
+                    const rx = point.options.radius * scaleX;
+                    const ry = point.options.radius * scaleY;
+                    if (point.options.pointStyle === 'rect') {
+                        const dx = rx * Math.SQRT1_2;
+                        const dy = ry * Math.SQRT1_2;
+                        return path([knot(x - dx, y - dy), knot(x + dx, y - dy), knot(x + dx, y + dy), knot(x - dx, y + dy)]);
+                    }
+                    // Four cubic Bezier segments form an editable ellipse.
+                    const k = 4 * (Math.sqrt(2) - 1) / 3;
+                    return path([
+                        { linked: true, points: [x - k * rx, y - ry, x, y - ry, x + k * rx, y - ry] },
+                        { linked: true, points: [x + rx, y - k * ry, x + rx, y, x + rx, y + k * ry] },
+                        { linked: true, points: [x + k * rx, y + ry, x, y + ry, x - k * rx, y + ry] },
+                        { linked: true, points: [x - rx, y + k * ry, x - rx, y, x - rx, y - k * ry] }
+                    ]);
+                });
+            } else {
+                // Use the full chart's geometry: hiding markers in a second render can change layout.
+                paths = meta.dataset.segments.map(segment => {
+                    const knots = meta.data.slice(segment.start, segment.end + 1)
+                        .filter(validPoint).map(point => knot(point.x * scaleX, point.y * scaleY));
+                    if (knots.length < 2) return null;
+                    if (layer === 'lineAreaFill') {
+                        const baseline = meta.vScale.getBasePixel() * scaleY;
+                        knots.push(knot(knots[knots.length - 1].points[2], baseline), knot(knots[0].points[2], baseline));
+                    }
+                    return path(knots, layer === 'lineStroke');
+                }).filter(Boolean);
+                if (!paths.length) return null;
+                if (layer === 'lineAreaFill') {
+                    fill = color(dataset.backgroundColor);
+                    fillEnabled = true;
+                } else {
+                    strokeWidth = (dataset.segment?.borderWidth ?? meta.dataset.options.borderWidth) * strokeScale;
+                    // Photoshop dash lengths are multiples of stroke width, unlike Canvas pixels.
+                    dash = (dataset.borderDash || []).map(value => ({ units: 'None', value: value * strokeScale / strokeWidth }));
+                }
+            }
+
+            const shape = {
+                nameSource: 'shap',
+                vectorMask: { paths, fillStartsWithAllPixels: false },
+                vectorFill: fill.content,
+                vectorStroke: {
+                    strokeEnabled: strokeWidth > 0,
+                    fillEnabled,
+                    lineWidth: { units: 'Pixels', value: strokeWidth },
+                    lineDashOffset: { units: 'Pixels', value: 0 },
+                    lineDashSet: dash,
+                    lineCapType: 'butt',
+                    lineJoinType: 'miter',
+                    lineAlignment: 'center',
+                    miterLimit: 10,
+                    content: stroke.content,
+                    opacity: stroke.opacity,
+                    resolution: 72
+                },
+                // A solid vector fill has no alpha field; Photoshop uses layer opacity instead.
+                opacity: fillEnabled ? fill.opacity : 1,
+                usingAlignedRendering: false,
+                canvas: document.createElement('canvas')
+            };
+            shape.canvas.width = canvas.width;
+            shape.canvas.height = canvas.height;
+            const ctx = shape.canvas.getContext('2d');
+            const cssColor = content => `rgb(${content.color.r}, ${content.color.g}, ${content.color.b})`;
+            ctx.fillStyle = cssColor(fill.content);
+            ctx.strokeStyle = cssColor(stroke.content);
+            ctx.lineWidth = strokeWidth;
+            ctx.setLineDash(dash.map(entry => entry.value * strokeWidth));
+            ctx.beginPath();
+            paths.forEach(({ knots, open }) => {
+                ctx.moveTo(knots[0].points[2], knots[0].points[3]);
+                const count = open ? knots.length - 1 : knots.length;
+                for (let i = 0; i < count; i++) {
+                    const previous = knots[i].points;
+                    const next = knots[(i + 1) % knots.length].points;
+                    ctx.bezierCurveTo(previous[4], previous[5], next[0], next[1], next[2], next[3]);
+                }
+                if (!open) ctx.closePath();
+            });
+            // PSD shape layers also require a raster cache. Keep fill opacity on the layer only.
+            if (fillEnabled) ctx.fill();
+            if (strokeWidth > 0) {
+                ctx.globalAlpha = stroke.opacity;
+                ctx.stroke();
+            }
+            return shape;
+        }
+
+        function composePsdShapeLayers(width, height, children) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            children.forEach(layer => {
+                if (!layer.canvas || layer.hidden) return;
+                ctx.globalAlpha = layer.opacity ?? 1;
+                ctx.drawImage(layer.canvas, 0, 0);
+            });
+            return canvas;
+        }
+
         function saveChartAsPsd() {
             const button = document.getElementById('savePsdBtn');
             if (!window.agPsd?.writePsd) {
@@ -3288,6 +3422,11 @@
                     : parsedData.datasets.map(dataset => dataset.label))
                     .map((name, index) => name || `데이터셋${index + 1}`);
                 const addLayer = (children, name, layer, datasetIndex, itemIndex = null) => {
+                    if (chartType === 'line' && ['lineStroke', 'lineMarkers', 'lineAreaFill'].includes(layer)) {
+                        const shape = createLinePsdShapeLayer(graphResult, layer, datasetIndex);
+                        if (shape) children.push({ ...shape, name: `${name}_${datasetNames[datasetIndex]}` });
+                        return;
+                    }
                     const result = renderLayer(layer, datasetIndex, itemIndex);
                     if (result) children.push({ name: `${name}_${datasetNames[datasetIndex]}`, canvas: result.canvas });
                 };
@@ -3327,7 +3466,7 @@
                 const buffer = window.agPsd.writePsd({
                     width,
                     height,
-                    canvas: composePsdLayerCanvas(
+                    canvas: chartType === 'line' ? composePsdShapeLayers(width, height, children) : composePsdLayerCanvas(
                         width,
                         height,
                         localBackgroundCanvas,
