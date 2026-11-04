@@ -3408,16 +3408,25 @@
         function createPsdValueTextLayer(ctx, text, x, y, fontName, outputScaleX, outputScaleY) {
             const currentMetrics = ctx.measureText(text);
             const previousBaseline = ctx.textBaseline;
+            const previousAlign = ctx.textAlign;
+            const direction = ctx.direction === 'inherit' ? getComputedStyle(ctx.canvas).direction : ctx.direction;
+            const rightAligned = previousAlign === 'right'
+                || (previousAlign === 'start' && direction === 'rtl')
+                || (previousAlign === 'end' && direction !== 'rtl');
+            // Move the text anchor to its advance-width center without moving the visible label.
+            const centerX = x + (previousAlign === 'center' ? 0 : currentMetrics.width * (rightAligned ? -0.5 : 0.5));
             ctx.textBaseline = 'alphabetic';
+            ctx.textAlign = 'center';
             const metrics = ctx.measureText(text);
             ctx.textBaseline = previousBaseline;
+            ctx.textAlign = previousAlign;
             const baselineY = y + metrics.actualBoundingBoxAscent - currentMetrics.actualBoundingBoxAscent;
             const matrix = ctx.getTransform();
             const transform = [
                 matrix.a * outputScaleX, matrix.b * outputScaleY,
                 matrix.c * outputScaleX, matrix.d * outputScaleY,
-                (matrix.a * x + matrix.c * baselineY + matrix.e) * outputScaleX,
-                (matrix.b * x + matrix.d * baselineY + matrix.f) * outputScaleY
+                (matrix.a * centerX + matrix.c * baselineY + matrix.e) * outputScaleX,
+                (matrix.b * centerX + matrix.d * baselineY + matrix.f) * outputScaleY
             ];
             const mapPoint = (px, py) => [transform[0] * px + transform[2] * py + transform[4], transform[1] * px + transform[3] * py + transform[5]];
             const corners = [
@@ -3434,7 +3443,7 @@
             const cache = canvas.getContext('2d');
             cache.setTransform(transform[0], transform[1], transform[2], transform[3], transform[4] - left, transform[5] - top);
             cache.font = ctx.font;
-            cache.textAlign = ctx.textAlign;
+            cache.textAlign = 'center';
             cache.textBaseline = 'alphabetic';
             cache.fillStyle = ctx.fillStyle;
             cache.fillText(text, 0, 0);
@@ -3450,7 +3459,7 @@
                     shapeType: 'point',
                     antiAlias: 'smooth',
                     style: { font: { name: fontName }, fontSize, fillColor: { r, g, b }, autoLeading: false, leading: fontSize * 1.2 },
-                    paragraphStyle: { justification: ctx.textAlign === 'center' ? 'center' : ['right', 'end'].includes(ctx.textAlign) ? 'right' : 'left' }
+                    paragraphStyle: { justification: 'center' }
                 }
             };
         }
