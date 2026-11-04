@@ -2988,7 +2988,7 @@
             return clippedCanvas;
         }
 
-        function createExportChartCanvas({ transparent = false, graphOnly = false, layer = 'combined', itemIndex = null, datasetIndex = null } = {}) {
+        function createExportChartCanvas({ transparent = false, graphOnly = false, layer = 'combined', itemIndex = null, datasetIndex = null, psdValueFont = null } = {}) {
             const chartType = document.getElementById('chartType').value;
             const { labels, datasets: sourceDatasets, totalSum } = parseAllData(chartType);
             if (labels.length === 0 || sourceDatasets.length === 0) return null;
@@ -3039,6 +3039,10 @@
                             ? 'hidden'
                             : 'combined';
                 options.plugins.tooltip.enabled = false;
+                const capturePsdValues = chartType === 'bar' && layer === 'labels' && psdValueFont;
+                if (capturePsdValues) {
+                    options.plugins.datalabels.font = { ...options.plugins.datalabels.font, family: 'MBC PSD Values', weight: 'normal' };
+                }
 
                 const layerPlugins = [];
                 if (layer === 'graph') {
@@ -3097,7 +3101,22 @@
                     options,
                     plugins: [squareBottomAlignPlugin, parallelDoughnutPlugin, ChartDataLabels, exportBackgroundPlugin, ...layerPlugins]
                 });
-                exportChart.update('none');
+                const psdTextLayers = [];
+                const renderContext = renderCanvas.getContext('2d');
+                const originalFillText = renderContext.fillText;
+                if (capturePsdValues) {
+                    renderContext.fillText = function(text, x, y) {
+                        const rgba = Chart.helpers.color(this.fillStyle).rgb;
+                        if (!rgba || !rgba.a || !this.globalAlpha) return;
+                        psdTextLayers.push(createPsdValueTextLayer(this, String(text), x, y, psdValueFont,
+                            EXPORT_WIDTH / renderCanvas.width, EXPORT_HEIGHT / renderCanvas.height));
+                    };
+                }
+                try {
+                    exportChart.update('none');
+                } finally {
+                    renderContext.fillText = originalFillText;
+                }
                 let outputCanvas = renderCanvas;
                 if (renderCanvas.width !== EXPORT_WIDTH || renderCanvas.height !== EXPORT_HEIGHT) {
                     outputCanvas = document.createElement('canvas');
@@ -3108,7 +3127,7 @@
                 if (layer === 'graphItem' && chartType === 'singleStackedBar') {
                     outputCanvas = clipStackedBarItemCanvas(outputCanvas, exportChart, itemIndex);
                 }
-                return { canvas: outputCanvas, chart: exportChart };
+                return { canvas: outputCanvas, chart: exportChart, psdTextLayers: capturePsdValues ? psdTextLayers : null };
             } finally {
                 isGraphOnlyMode = originalGraphOnlyMode;
             }
@@ -3368,20 +3387,90 @@
             return shape;
         }
 
+        async function loadLocalPsdValueFont() {
+            // Only local font lookup. Never fetch, read, embed or upload a font file.
+            const candidates = [
+                { name: 'MBCNEWMedium', aliases: ['MBCNEWMedium', 'MBC NEW Medium', 'MBC 새로움 Medium'] },
+                { name: 'MBCNEWOTFMedium', aliases: ['MBCNEWOTFMedium', 'MBC NEW OTF Medium'] }
+            ];
+            for (const candidate of candidates) {
+                const source = candidate.aliases.map(name => `local("${name}")`).join(', ');
+                const face = new FontFace('MBC PSD Values', source, { style: 'normal', weight: '400' });
+                try {
+                    await face.load();
+                    document.fonts.add(face);
+                    return candidate.name;
+                } catch (_) { /* Font is not installed or local font access is unavailable. */ }
+            }
+            return null;
+        }
+
+        function createPsdValueTextLayer(ctx, text, x, y, fontName, outputScaleX, outputScaleY) {
+            const currentMetrics = ctx.measureText(text);
+            const previousBaseline = ctx.textBaseline;
+            ctx.textBaseline = 'alphabetic';
+            const metrics = ctx.measureText(text);
+            ctx.textBaseline = previousBaseline;
+            const baselineY = y + metrics.actualBoundingBoxAscent - currentMetrics.actualBoundingBoxAscent;
+            const matrix = ctx.getTransform();
+            const transform = [
+                matrix.a * outputScaleX, matrix.b * outputScaleY,
+                matrix.c * outputScaleX, matrix.d * outputScaleY,
+                (matrix.a * x + matrix.c * baselineY + matrix.e) * outputScaleX,
+                (matrix.b * x + matrix.d * baselineY + matrix.f) * outputScaleY
+            ];
+            const mapPoint = (px, py) => [transform[0] * px + transform[2] * py + transform[4], transform[1] * px + transform[3] * py + transform[5]];
+            const corners = [
+                mapPoint(-metrics.actualBoundingBoxLeft, -metrics.actualBoundingBoxAscent),
+                mapPoint(metrics.actualBoundingBoxRight, -metrics.actualBoundingBoxAscent),
+                mapPoint(-metrics.actualBoundingBoxLeft, metrics.actualBoundingBoxDescent),
+                mapPoint(metrics.actualBoundingBoxRight, metrics.actualBoundingBoxDescent)
+            ];
+            const left = Math.floor(Math.min(...corners.map(point => point[0]))) - 2;
+            const top = Math.floor(Math.min(...corners.map(point => point[1]))) - 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.ceil(Math.max(...corners.map(point => point[0]))) + 2 - left);
+            canvas.height = Math.max(1, Math.ceil(Math.max(...corners.map(point => point[1]))) + 2 - top);
+            const cache = canvas.getContext('2d');
+            cache.setTransform(transform[0], transform[1], transform[2], transform[3], transform[4] - left, transform[5] - top);
+            cache.font = ctx.font;
+            cache.textAlign = ctx.textAlign;
+            cache.textBaseline = 'alphabetic';
+            cache.fillStyle = ctx.fillStyle;
+            cache.fillText(text, 0, 0);
+            const { r, g, b, a = 1 } = Chart.helpers.color(ctx.fillStyle).rgb;
+            const fontSize = Number(/([\d.]+)px/.exec(ctx.font)?.[1]) || 12;
+            return {
+                name: text,
+                left, top, canvas,
+                opacity: ctx.globalAlpha * a,
+                text: {
+                    text,
+                    transform,
+                    shapeType: 'point',
+                    antiAlias: 'smooth',
+                    style: { font: { name: fontName }, fontSize, fillColor: { r, g, b }, autoLeading: false, leading: fontSize * 1.2 },
+                    paragraphStyle: { justification: ctx.textAlign === 'center' ? 'center' : ['right', 'end'].includes(ctx.textAlign) ? 'right' : 'left' }
+                }
+            };
+        }
+
         function composePsdShapeLayers(width, height, children) {
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             children.forEach(layer => {
-                if (!layer.canvas || layer.hidden) return;
+                if (layer.hidden) return;
+                const layerCanvas = layer.children ? composePsdShapeLayers(width, height, layer.children) : layer.canvas;
+                if (!layerCanvas) return;
                 ctx.globalAlpha = layer.opacity ?? 1;
-                ctx.drawImage(layer.canvas, 0, 0);
+                ctx.drawImage(layerCanvas, layer.left || 0, layer.top || 0);
             });
             return canvas;
         }
 
-        function saveChartAsPsd() {
+        async function saveChartAsPsd() {
             const button = document.getElementById('savePsdBtn');
             if (!window.agPsd?.writePsd) {
                 alert('PSD 저장 기능을 준비하지 못했습니다. 인터넷 연결 후 다시 시도하세요.');
@@ -3390,8 +3479,10 @@
 
             const originalLabel = button.innerText;
             const exportCharts = [];
+            let psdValueFont = null;
             const renderLayer = (layer, datasetIndex = null, itemIndex = null) => {
-                const result = createExportChartCanvas({ transparent: true, layer, datasetIndex, itemIndex });
+                const result = createExportChartCanvas({ transparent: true, layer, datasetIndex, itemIndex,
+                    psdValueFont: layer === 'labels' && datasetIndex !== null ? psdValueFont : null });
                 if (result) exportCharts.push(result.chart);
                 return result;
             };
@@ -3400,6 +3491,7 @@
 
             try {
                 const chartType = document.getElementById('chartType').value;
+                if (chartType === 'bar') psdValueFont = await loadLocalPsdValueFont();
                 const parsedData = parseAllData(chartType);
                 const graphResult = renderLayer('graph');
                 const labelsResult = renderLayer('labels');
@@ -3428,6 +3520,12 @@
                         return;
                     }
                     const result = renderLayer(layer, datasetIndex, itemIndex);
+                    if (result?.psdTextLayers) {
+                        if (result.psdTextLayers.length) children.push({
+                            name: `${name}_${datasetNames[datasetIndex]}`, opened: true, blendMode: 'pass through', children: result.psdTextLayers
+                        });
+                        return;
+                    }
                     if (result) children.push({ name: `${name}_${datasetNames[datasetIndex]}`, canvas: result.canvas });
                 };
                 // Chart.js draws datasets in reverse order. Keep the same overlap in the PSD.
@@ -3466,7 +3564,7 @@
                 const buffer = window.agPsd.writePsd({
                     width,
                     height,
-                    canvas: chartType === 'line' ? composePsdShapeLayers(width, height, children) : composePsdLayerCanvas(
+                    canvas: chartType === 'line' || psdValueFont ? composePsdShapeLayers(width, height, children) : composePsdLayerCanvas(
                         width,
                         height,
                         localBackgroundCanvas,
