@@ -3039,7 +3039,7 @@
                             ? 'hidden'
                             : 'combined';
                 options.plugins.tooltip.enabled = false;
-                const capturePsdValues = chartType === 'bar' && layer === 'labels' && psdValueFont;
+                const capturePsdValues = ['bar', 'line'].includes(chartType) && layer === 'labels' && psdValueFont;
                 if (capturePsdValues) {
                     options.plugins.datalabels.font = { ...options.plugins.datalabels.font, family: 'MBC PSD Values', weight: 'normal' };
                 }
@@ -3500,7 +3500,7 @@
 
             try {
                 const chartType = document.getElementById('chartType').value;
-                if (chartType === 'bar') psdValueFont = await loadLocalPsdValueFont();
+                if (['bar', 'line'].includes(chartType)) psdValueFont = await loadLocalPsdValueFont();
                 const parsedData = parseAllData(chartType);
                 const graphResult = renderLayer('graph');
                 const labelsResult = renderLayer('labels');
