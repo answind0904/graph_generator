@@ -1516,7 +1516,7 @@
         }
 
         function updateAllTotals() {
-            const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
+            const dataInputs = document.querySelectorAll('#data-input-container .item-value-input');
             const mainTotal = Array.from(dataInputs)
                 .map(input => Number(input.value.trim()) || 0)
                 .reduce((a, b) => a + b, 0);
@@ -1524,7 +1524,7 @@
 
             const additionalBlocks = document.querySelectorAll('.additional-dataset-block');
             additionalBlocks.forEach(block => {
-                const inputs = block.querySelectorAll('input[type="number"]');
+                const inputs = block.querySelectorAll('.dataset-value');
                 const subTotal = Array.from(inputs)
                     .map(input => Number(input.value.trim()) || 0)
                     .reduce((a, b) => a + b, 0);
@@ -1575,8 +1575,8 @@
         }
         
         function parseAllData(chartType) {
-            const labelInputs = document.querySelectorAll('#data-input-container input[type="text"]');
-            const dataInputs = document.querySelectorAll('#data-input-container input[type="number"]');
+            const labelInputs = document.querySelectorAll('#data-input-container .item-label-input');
+            const dataInputs = document.querySelectorAll('#data-input-container .item-value-input');
             const colorInputs = document.querySelectorAll('#data-input-container input[type="color"]');
             
             const mainDatasetName = document.getElementById('mainDatasetName').value || '데이터셋 1';
@@ -2415,6 +2415,7 @@
             row.addEventListener('dragend', handleDragEnd);
         }
 
+        // Text inputs preserve the Windows IME mode when tabbing between names and values.
         function addInputRow(label = '', value = '', customColor = null) {
             invalidateShareLink();
             const container = document.getElementById('data-input-container');
@@ -2427,14 +2428,14 @@
             row.draggable = false; 
             
             const dragHandle = `<div class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>`;
-            const colorPickerHtml = `<div class="relative row-color-wrapper"><div class="color-indicator w-6 h-6 rounded-full mr-1 flex-shrink-0 shadow-sm border border-gray-200" style="background-color: ${defaultColor};"></div><input type="color" class="absolute inset-0 opacity-0 cursor-pointer" value="${defaultColor}"></div>`;
+            const colorPickerHtml = `<div class="relative row-color-wrapper"><div class="color-indicator w-6 h-6 rounded-full mr-1 flex-shrink-0 shadow-sm border border-gray-200" style="background-color: ${defaultColor};"></div><input type="color" tabindex="-1" class="absolute inset-0 opacity-0 cursor-pointer" value="${defaultColor}"></div>`;
 
             row.innerHTML = `
                 ${dragHandle}
                 ${colorPickerHtml}
                 <input type="text" value="${label}" class="item-label-input min-w-0 px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="항목">
-                <input type="number" value="${value}" class="item-value-input px-2 py-1.5 border border-gray-300 focus:outline-none text-sm text-right" placeholder="수치">
-                <button onclick="removeInputRow(this)" class="row-remove-button text-red-400 hover:text-red-600 p-1.5 rounded-md transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
+                <input type="text" autocomplete="off" spellcheck="false" value="${value}" class="item-value-input px-2 py-1.5 border border-gray-300 focus:outline-none text-sm text-right" placeholder="수치">
+                <button tabindex="-1" onclick="removeInputRow(this)" class="row-remove-button text-red-400 hover:text-red-600 p-1.5 rounded-md transition"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
             `;
 
             const colorInput = row.querySelector('input[type="color"]');
@@ -2498,13 +2499,13 @@
         }
 
         function getSankeyItemLabels() {
-            return Array.from(document.querySelectorAll('#data-input-container input[type="text"]')).map((input, index) => {
+            return Array.from(document.querySelectorAll('#data-input-container .item-label-input')).map((input, index) => {
                 return input.value.trim() || `항목 ${index + 1}`;
             });
         }
 
         function getSankeyStagesFromUI(mainValues = null, mainName = null, mainColor = null, baseColors = getBaseColors()) {
-            const values = mainValues || Array.from(document.querySelectorAll('#data-input-container input[type="number"]')).map(input => Number(input.value.trim()) || 0);
+            const values = mainValues || Array.from(document.querySelectorAll('#data-input-container .item-value-input')).map(input => Number(input.value.trim()) || 0);
             const stages = [{
                 name: mainName || document.getElementById('mainDatasetName').value || '데이터셋 1',
                 color: mainColor || document.getElementById('mainDatasetColor').value,
@@ -2734,7 +2735,7 @@
             });
             document.querySelectorAll('.additional-dataset-block').forEach(block => {
                 const body = block.querySelector('.dataset-body');
-                const existingValues = Array.from(body.querySelectorAll('input[type="number"]')).map(input => input.value);
+                const existingValues = Array.from(body.querySelectorAll('.dataset-value')).map(input => input.value);
                 body.innerHTML = '';
                 items.forEach((item, index) => {
                     const value = existingValues[index] || '';
@@ -2742,9 +2743,9 @@
                     row.className = 'data-entry-grid dataset-data-row min-h-[38px] px-1 py-0.5 rounded-md border border-transparent';
                     row.innerHTML = `
                         <div class="drag-handle text-gray-400 p-1" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg></div>
-                        <div class="row-color-wrapper relative"><div class="color-indicator ${item.noColor ? 'no-color' : ''} w-6 h-6 rounded-full mr-1 shadow-sm border border-gray-200" style="${item.noColor ? '' : `background-color: ${item.color};`}"></div><input type="color" aria-label="항목 색상" class="dataset-row-color-input absolute inset-0 h-full w-full cursor-pointer opacity-0" value="${item.color}"></div>
+                        <div class="row-color-wrapper relative"><div class="color-indicator ${item.noColor ? 'no-color' : ''} w-6 h-6 rounded-full mr-1 shadow-sm border border-gray-200" style="${item.noColor ? '' : `background-color: ${item.color};`}"></div><input type="color" aria-label="항목 색상" tabindex="-1" class="dataset-row-color-input absolute inset-0 h-full w-full cursor-pointer opacity-0" value="${item.color}"></div>
                         <input type="text" aria-label="항목명" class="dataset-item-label-input min-w-0 px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="항목">
-                        <input type="number" value="${value}" class="dataset-value px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="수치">
+                        <input type="text" autocomplete="off" spellcheck="false" value="${value}" class="dataset-value px-2 py-1.5 border border-gray-300 focus:outline-none text-sm" placeholder="수치">
                         <button type="button" disabled tabindex="-1" aria-label="상위 데이터셋에서 관리되는 항목" class="dataset-row-remove-button text-red-400 p-1.5 rounded-md"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg></button>
                     `;
                     const labelInput = row.querySelector('.dataset-item-label-input');
@@ -3387,6 +3388,86 @@
             return shape;
         }
 
+        function createCircularPsdShapeLayer(exportResult, datasetIndex, itemIndex) {
+            const { chart, canvas } = exportResult;
+            const arc = chart.getDatasetMeta(datasetIndex).data[itemIndex];
+            if (!arc || arc.hidden || !Number.isFinite(arc.circumference) || arc.circumference <= 0 || arc.outerRadius <= 0) return null;
+            const scaleX = canvas.width / chart.width;
+            const scaleY = canvas.height / chart.height;
+            const start = arc.startAngle;
+            const sweep = Math.min(arc.circumference, Math.PI * 2);
+            const end = start + sweep;
+            const fullCircle = sweep >= Math.PI * 2 - 1e-8;
+            const knot = (x, y) => ({ linked: false, points: [x, y, x, y, x, y] });
+            const curve = (radius, from, to) => {
+                // Short cubic Bezier arcs keep the contour smooth even after enlargement.
+                const count = Math.max(1, Math.ceil(Math.abs(to - from) / (Math.PI / 4)));
+                const step = (to - from) / count;
+                const knots = [];
+                for (let i = 0; i <= count; i++) {
+                    const angle = from + step * i;
+                    const x = (arc.x + radius * Math.cos(angle)) * scaleX;
+                    const y = (arc.y + radius * Math.sin(angle)) * scaleY;
+                    const handle = 4 / 3 * Math.tan(step / 4) * radius;
+                    const dx = -Math.sin(angle) * handle * scaleX;
+                    const dy = Math.cos(angle) * handle * scaleY;
+                    knots.push({ linked: false, points: [x - (i ? dx : 0), y - (i ? dy : 0), x, y, x + (i < count ? dx : 0), y + (i < count ? dy : 0)] });
+                }
+                return knots;
+            };
+            const path = knots => ({ open: false, operation: 'combine', fillRule: 'non-zero', knots });
+            // Extend only a shared end edge by 1 output pixel. Keep exposed edges exact.
+            const tau = Math.PI * 2;
+            const hasNextSlice = chart.getDatasetMeta(datasetIndex).data.some(other => {
+                if (other === arc || other.hidden || !(other.circumference > 0)) return false;
+                const delta = ((other.startAngle - end) % tau + tau) % tau;
+                return Math.min(delta, tau - delta) < 1e-8
+                    && Chart.helpers.color(other.options.backgroundColor).rgb.a > 0;
+            });
+            const overlap = !fullCircle && hasNextSlice ? 1 / Math.min(scaleX, scaleY) : 0;
+            const anglePadding = radius => Math.asin(Math.min(overlap / radius, 0.5));
+            const outer = curve(arc.outerRadius, start, end + anglePadding(arc.outerRadius));
+            const inner = arc.innerRadius > 0 ? curve(arc.innerRadius, end + anglePadding(arc.innerRadius), start) : [];
+            const centerEdge = overlap > 0 ? [knot(
+                (arc.x - Math.sin(end) * overlap) * scaleX,
+                (arc.y + Math.cos(end) * overlap) * scaleY
+            )] : [];
+            // Reverse the inner contour to preserve the hole, including a single 100% slice.
+            const paths = fullCircle
+                ? [path(outer), ...(inner.length ? [path(inner)] : [])]
+                : [path([...outer, ...(inner.length ? inner : [...centerEdge, knot(arc.x * scaleX, arc.y * scaleY)])])];
+            const { r, g, b, a = 1 } = Chart.helpers.color(arc.options.backgroundColor).rgb;
+            const content = { type: 'color', color: { r, g, b } };
+            const cache = document.createElement('canvas');
+            cache.width = canvas.width;
+            cache.height = canvas.height;
+            const ctx = cache.getContext('2d');
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.beginPath();
+            paths.forEach(({ knots }) => {
+                ctx.moveTo(knots[0].points[2], knots[0].points[3]);
+                knots.forEach((previous, i) => {
+                    const p = previous.points;
+                    const n = knots[(i + 1) % knots.length].points;
+                    ctx.bezierCurveTo(p[4], p[5], n[0], n[1], n[2], n[3]);
+                });
+                ctx.closePath();
+            });
+            ctx.fill();
+            return {
+                nameSource: 'shap', vectorMask: { paths, fillStartsWithAllPixels: false },
+                vectorFill: content,
+                vectorStroke: {
+                    strokeEnabled: false, fillEnabled: true,
+                    lineWidth: { units: 'Pixels', value: 0 },
+                    lineDashOffset: { units: 'Pixels', value: 0 }, lineDashSet: [],
+                    lineCapType: 'butt', lineJoinType: 'miter', lineAlignment: 'inside',
+                    miterLimit: 10, content, opacity: 1, resolution: 72
+                },
+                opacity: a, usingAlignedRendering: false, canvas: cache
+            };
+        }
+
         async function loadLocalPsdValueFont() {
             // Only local font lookup. Never fetch, read, embed or upload a font file.
             const candidates = [
@@ -3528,6 +3609,11 @@
                         if (shape) children.push({ ...shape, name: `${name}_${datasetNames[datasetIndex]}` });
                         return;
                     }
+                    if (isCircularPsd && layer === 'graphItem') {
+                        const shape = createCircularPsdShapeLayer(graphResult, datasetIndex, itemIndex);
+                        if (shape) children.push({ ...shape, name: `${name}_${datasetNames[datasetIndex]}` });
+                        return;
+                    }
                     const result = renderLayer(layer, datasetIndex, itemIndex);
                     if (result?.psdTextLayers) {
                         if (result.psdTextLayers.length) children.push({
@@ -3555,7 +3641,18 @@
                         graphItemLayers
                             .filter(item => !isCircularPsd || item.datasetIndex === datasetIndex)
                             .forEach(item => addLayer(children, item.name, 'graphItem', datasetIndex, item.itemIndex));
-                        graphChildren.push({ name: `그래프_${datasetNames[datasetIndex]}`, opened: true, children });
+                        // Apply shared alpha once to the isolated group, so overlapping shapes
+                        // do not form darker seams when the chart is translucent.
+                        let groupOpacity = 1;
+                        if (isCircularPsd) {
+                            const visible = children.filter(child => child.opacity > 0);
+                            if (visible.length && visible.every(child => Math.abs(child.opacity - visible[0].opacity) < 1e-8)) {
+                                groupOpacity = visible[0].opacity;
+                                visible.forEach(child => { child.opacity = 1; });
+                            }
+                        }
+                        graphChildren.push({ name: `그래프_${datasetNames[datasetIndex]}`, opened: true,
+                            blendMode: 'normal', opacity: groupOpacity, children });
                     });
                 } else {
                     datasetIndices.forEach(datasetIndex => addLayer(graphChildren, '그래프', 'graph', datasetIndex));
@@ -3573,7 +3670,7 @@
                 const buffer = window.agPsd.writePsd({
                     width,
                     height,
-                    canvas: chartType === 'line' || psdValueFont ? composePsdShapeLayers(width, height, children) : composePsdLayerCanvas(
+                    canvas: chartType === 'line' || isCircularPsd || psdValueFont ? composePsdShapeLayers(width, height, children) : composePsdLayerCanvas(
                         width,
                         height,
                         localBackgroundCanvas,
